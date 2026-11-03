@@ -1,4 +1,5 @@
-import type { Thread } from "../lib/types";
+import { Button } from "@/components/ui/button";
+import type { Thread } from "@/lib/types";
 import { Dialog } from "./Dialog";
 import { IconArchive } from "./Icons";
 
@@ -28,24 +29,30 @@ export function ArchiveDialog({ threads, onRestore, onClose }: ArchiveDialogProp
       onClose={onClose}
     >
       {threads.length === 0 ? (
-        <p className="dialog-empty">
+        <p className="m-0 text-sm text-muted-foreground">
           Archive a chat from its options menu to hide it from the sidebar without deleting it.
         </p>
       ) : (
-        <div className="dialog-list">
+        <div className="flex flex-col gap-0.5">
           {threads.map((thread) => (
-            <div key={thread.id} className="dialog-row is-static">
-              <IconArchive size={17} />
-              <span className="grow">
-                <span className="title">{thread.title}</span>
-                <span className="sub">
+            <div key={thread.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+              <IconArchive size={17} className="shrink-0 text-faint" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-medium">{thread.title}</span>
+                <span className="truncate text-xs text-faint">
                   {thread.messages.length} message{thread.messages.length === 1 ? "" : "s"} ·
                   archived {age(thread.archivedAt ?? thread.updatedAt)}
                 </span>
               </span>
-              <button type="button" className="btn is-tiny" onClick={() => onRestore(thread.id)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => onRestore(thread.id)}
+              >
                 Restore
-              </button>
+              </Button>
             </div>
           ))}
         </div>

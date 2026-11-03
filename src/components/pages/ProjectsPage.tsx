@@ -1,7 +1,13 @@
 import { useState } from "react";
-import type { Thread } from "../../lib/types";
-import type { Project } from "../../lib/workspace";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { Thread } from "@/lib/types";
+import type { Project } from "@/lib/workspace";
 import { IconCheck, IconFolder, IconPencil, IconPlus, IconTrash } from "../Icons";
+import { IconButton } from "../icon-button";
 import { EmptyCard, Page } from "./Page";
 
 interface ProjectsPageProps {
@@ -60,53 +66,74 @@ export function ProjectsPage({
       title="Projects"
       description="Group related chats, share the context, and keep every conversation about one body of work in the same place."
       actions={
-        <span className="page-count">
+        <span className="text-xs text-faint max-[560px]:w-full">
           {projects.length} project{projects.length === 1 ? "" : "s"}
         </span>
       }
     >
-      <form
-        className="page-card new-project"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!name.trim()) return;
-          onCreate(name);
-          setName("");
-        }}
-      >
-        <div className="new-project-icon" aria-hidden="true">
-          <IconFolder size={20} />
-        </div>
-        <label className="sr-only" htmlFor="new-project-name">
-          Project name
-        </label>
-        <input
-          id="new-project-name"
-          className="input"
-          value={name}
-          maxLength={60}
-          placeholder="New project name"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
-          <IconPlus size={16} />
-          Create project
-        </button>
-      </form>
+      <Card className="flex-row flex-wrap items-center gap-2.5 rounded-2xl border-border-soft p-4 max-[560px]:flex-col max-[560px]:items-stretch">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!name.trim()) return;
+            onCreate(name);
+            setName("");
+          }}
+          className="flex flex-1 flex-wrap items-center gap-2.5"
+        >
+          <div
+            aria-hidden="true"
+            className="grid size-[38px] shrink-0 place-items-center rounded-xl bg-brand-soft text-brand max-[560px]:order-1"
+          >
+            <IconFolder size={20} />
+          </div>
+          <label className="sr-only" htmlFor="new-project-name">
+            Project name
+          </label>
+          <Input
+            id="new-project-name"
+            value={name}
+            maxLength={60}
+            placeholder="New project name"
+            onChange={(event) => setName(event.target.value)}
+            className="min-w-0 flex-1 max-[560px]:order-2 max-[560px]:basis-full"
+          />
+          <Button
+            type="submit"
+            disabled={!name.trim()}
+            className="rounded-full max-[560px]:order-3 max-[560px]:w-full"
+          >
+            <IconPlus size={16} />
+            Create project
+          </Button>
+        </form>
+      </Card>
 
       <button
         type="button"
-        className={activeProjectId === null ? "all-chats is-active" : "all-chats"}
         onClick={() => onOpen(null)}
+        className={cn(
+          "flex items-center gap-3 rounded-xl border border-border-soft bg-card px-4 py-3 text-left transition-colors hover:bg-hover",
+          activeProjectId === null && "border-brand/40 bg-brand-soft hover:bg-brand-soft",
+        )}
       >
-        <span className="all-chats-icon" aria-hidden="true">
+        <span
+          aria-hidden="true"
+          className="grid size-[34px] shrink-0 place-items-center rounded-[10px] bg-hover text-muted-foreground"
+        >
           <IconFolder size={18} />
         </span>
-        <span className="grow">
-          <span className="title">All chats</span>
-          <span className="sub">{loose} chat{loose === 1 ? "" : "s"} outside a project</span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="block text-sm font-medium">All chats</span>
+          <span className="block text-xs text-faint">
+            {loose} chat{loose === 1 ? "" : "s"} outside a project
+          </span>
         </span>
-        {activeProjectId === null ? <IconCheck size={16} /> : <span className="sub">Open</span>}
+        {activeProjectId === null ? (
+          <IconCheck size={16} className="text-brand" />
+        ) : (
+          <span className="text-xs text-faint">Open</span>
+        )}
       </button>
 
       {projects.length === 0 ? (
@@ -115,23 +142,28 @@ export function ProjectsPage({
           detail="Create one above, then every new chat started inside it carries the project."
         />
       ) : (
-        <div className="project-grid">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] max-[860px]:grid-cols-1">
           {projects.map((project) => {
             const meta = counts.get(project.id);
             const isEditing = editing === project.id;
             return (
               <article
                 key={project.id}
-                className={project.id === activeProjectId ? "project-card is-active" : "project-card"}
+                className={cn(
+                  "flex flex-col gap-3 rounded-2xl border border-border-soft bg-card p-4 transition-colors",
+                  project.id === activeProjectId && "border-brand/40",
+                )}
               >
-                <div className="project-card-top">
-                  <span className="project-swatch" style={{ background: project.color }}>
+                <div className="flex items-start gap-2.5">
+                  <span
+                    className="grid size-[38px] shrink-0 place-items-center rounded-xl text-base font-semibold text-white"
+                    style={{ background: project.color }}
+                  >
                     {project.name.slice(0, 1).toUpperCase()}
                   </span>
-                  <div className="project-card-name">
+                  <div className="min-w-0 flex-1">
                     {isEditing ? (
-                      <input
-                        className="input is-inline"
+                      <Input
                         value={draft}
                         autoFocus
                         maxLength={60}
@@ -145,51 +177,68 @@ export function ProjectsPage({
                           }
                           if (event.key === "Escape") setEditing(null);
                         }}
+                        className="h-auto px-2 py-0.5 text-sm"
                       />
                     ) : (
-                      <h2>{project.name}</h2>
+                      <h2 className="mt-0 mb-0.5 truncate text-base font-semibold">{project.name}</h2>
                     )}
-                    <span className="sub">
+                    <span className="block text-xs text-faint">
                       {meta?.count ?? 0} chat{(meta?.count ?? 0) === 1 ? "" : "s"}
                       {meta?.last ? ` · active ${relative(meta.last)}` : ""}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={`Rename ${project.name}`}
+                  <IconButton
+                    label={`Rename ${project.name}`}
+                    tooltip={false}
                     onClick={() => {
                       setEditing(project.id);
                       setDraft(project.name);
                     }}
+                    className="size-7 rounded-md max-[860px]:size-10"
                   >
                     <IconPencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      confirming === project.id ? "btn btn-danger is-armed is-tiny" : "icon-btn is-danger"
-                    }
-                    aria-label={`Delete ${project.name}`}
-                    onClick={() => {
-                      if (confirming !== project.id) {
-                        setConfirming(project.id);
-                        return;
-                      }
-                      setConfirming(null);
-                      onRemove(project.id);
-                    }}
-                  >
-                    {confirming === project.id ? "Sure?" : <IconTrash size={15} />}
-                  </button>
+                  </IconButton>
+                  {confirming === project.id ? (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="shrink-0 rounded-full"
+                      aria-label={`Delete ${project.name}`}
+                      onClick={() => {
+                        setConfirming(null);
+                        onRemove(project.id);
+                      }}
+                    >
+                      Sure?
+                    </Button>
+                  ) : (
+                    <IconButton
+                      label={`Delete ${project.name}`}
+                      tooltip={false}
+                      onClick={() => setConfirming(project.id)}
+                      className="size-7 rounded-md text-faint hover:text-destructive max-[860px]:size-10"
+                    >
+                      <IconTrash size={15} />
+                    </IconButton>
+                  )}
                 </div>
-                <div className="project-card-foot">
-                  <button type="button" className="btn btn-primary" onClick={() => onOpen(project.id)}>
+                <div className="mt-auto flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    className="rounded-full"
+                    onClick={() => onOpen(project.id)}
+                  >
                     Open project
-                  </button>
-                  <button type="button" className="btn" onClick={() => onNewChat(project.id)}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => onNewChat(project.id)}
+                  >
                     New chat
-                  </button>
+                  </Button>
                 </div>
               </article>
             );

@@ -14,3 +14,6 @@ shots/
 # rendered video output (re-render with `npx hyperframes`)
 videos/**/renders/*.mp4
 videos/**/.hyperframes/
+
+# editor backups written before in-place edits
+*.bak

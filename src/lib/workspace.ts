@@ -52,12 +52,12 @@ export interface WorkspaceState {
 }
 
 export const PROJECT_COLORS = [
-  "#3b82f6",
-  "#8b5cf6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#0ea5e9",
+  "#1d4ed8",
+  "#6d28d9",
+  "#047857",
+  "#b45309",
+  "#b91c1c",
+  "#0369a1",
 ];
 
 export const STYLES: { id: StyleId; label: string; hint: string }[] = [

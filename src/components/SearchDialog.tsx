@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Thread } from "../lib/types";
+
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { Thread } from "@/lib/types";
 import { IconSearch } from "./Icons";
 import { Dialog } from "./Dialog";
 
@@ -74,7 +77,11 @@ function Highlight({ text, query }: { text: string; query: string }) {
       break;
     }
     if (at > cursor) parts.push(text.slice(cursor, at));
-    parts.push(<mark key={key++}>{text.slice(at, at + needle.length)}</mark>);
+    parts.push(
+      <mark key={key++} className="bg-transparent font-semibold text-brand">
+        {text.slice(at, at + needle.length)}
+      </mark>,
+    );
     cursor = at + needle.length;
   }
   return <>{parts}</>;
@@ -110,18 +117,20 @@ export function SearchDialog({ threads, onSelect, onClose }: SearchDialogProps) 
       onClose={onClose}
       wide
     >
-      <div className="search-field">
-        <IconSearch size={16} />
+      <div className="relative">
+        <IconSearch
+          size={16}
+          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint"
+        />
         <label className="sr-only" htmlFor="chat-search">
           Search chats
         </label>
-        <input
+        <Input
           id="chat-search"
-          className="input"
-          data-autofocus
           value={query}
           placeholder="Search chats"
           autoComplete="off"
+          className="pl-9"
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
@@ -138,12 +147,14 @@ export function SearchDialog({ threads, onSelect, onClose }: SearchDialogProps) 
         />
       </div>
 
-      <p className="search-count">
+      <p className="mt-3.5 mb-1.5 text-xs font-semibold tracking-[0.06em] text-faint uppercase">
         {query.trim() ? `${hits.length} result${hits.length === 1 ? "" : "s"}` : "Recent chats"}
       </p>
 
-      <div className="search-list" role="listbox" aria-label="Chat results">
-        {hits.length === 0 && <p className="empty-note">No chats match “{query.trim()}”.</p>}
+      <div role="listbox" aria-label="Chat results" className="flex flex-col gap-0.5">
+        {hits.length === 0 && (
+          <p className="mx-0.5 my-2.5 text-sm text-faint">No chats match “{query.trim()}”.</p>
+        )}
         {hits.map((hit, index) => (
           <button
             key={hit.thread.id}
@@ -151,15 +162,18 @@ export function SearchDialog({ threads, onSelect, onClose }: SearchDialogProps) 
             type="button"
             role="option"
             aria-selected={index === active}
-            className="search-item"
             onMouseEnter={() => setActive(index)}
             onFocus={() => setActive(index)}
             onClick={() => open(index)}
+            className={cn(
+              "flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left",
+              index === active && "bg-active",
+            )}
           >
-            <span className="title">
+            <span className="truncate text-sm font-medium text-foreground">
               <Highlight text={hit.thread.title} query={query} />
             </span>
-            <span className="snippet">
+            <span className="truncate text-xs text-muted-foreground">
               <Highlight text={hit.snippet} query={query} />
             </span>
           </button>

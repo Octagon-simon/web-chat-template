@@ -16,6 +16,8 @@ const shots = [
   { name: "customize-light", path: "/?demo=1&panel=customize", theme: "light", vp: "desktop" },
   { name: "settings-light", path: "/?demo=1&panel=settings", theme: "light", vp: "desktop" },
   { name: "mobile-light", path: "/?demo=1&panel=mobile", theme: "light", vp: "desktop" },
+  { name: "login-light", path: "/?panel=login", theme: "light", vp: "desktop" },
+  { name: "signup-dark", path: "/?panel=signup", theme: "dark", vp: "desktop" },
   { name: "chat-dark", path: "/?demo=1", theme: "dark", vp: "desktop" },
   { name: "settings-dark", path: "/?demo=1&panel=settings", theme: "dark", vp: "desktop" },
   { name: "skills-dark", path: "/?demo=1&panel=skills", theme: "dark", vp: "desktop" },

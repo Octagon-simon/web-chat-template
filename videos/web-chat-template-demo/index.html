@@ -461,7 +461,7 @@
           <div class="cap">MEASURED</div>
           <div class="spec"><span class="k">768</span><span class="v">conversation column</span></div>
           <div class="spec"><span class="k">40</span><span class="v">controls, every surface</span></div>
-          <div class="spec"><span class="k">1</span><span class="v">runtime dependency</span></div>
+          <div class="spec"><span class="k">2</span><span class="v">themes, one token layer</span></div>
         </div>
       </section>
 
@@ -528,6 +528,13 @@
             </div>
             <div class="bar-row" data-row="4">
               <span class="bar-idx">06</span>
+              <span class="bar-name">Sign in</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">Login, signup and change account, ready to wire.</span>
+              <span class="bar-addr">localhost:5173/login</span>
+            </div>
+            <div class="bar-row" data-row="5">
+              <span class="bar-idx">07</span>
               <span class="bar-name">Mobile app</span>
               <span class="bar-sep"></span>
               <span class="bar-desc">Install the same chat straight to a home screen.</span>
@@ -539,7 +546,8 @@
             <img data-shot="1" src="assets/screens/skills-light.png" alt="Skills" />
             <img data-shot="2" src="assets/screens/connectors-light.png" alt="Connectors" />
             <img data-shot="3" src="assets/screens/customize-light.png" alt="Customize" />
-            <img data-shot="4" src="assets/screens/mobile-light.png" alt="Mobile app" />
+            <img data-shot="4" src="assets/screens/login-light.png" alt="Sign in" />
+            <img data-shot="5" src="assets/screens/mobile-light.png" alt="Mobile app" />
           </div>
         </div>
       </section>
@@ -548,7 +556,7 @@
         <div class="window">
           <div class="bar">
             <div class="bar-row">
-              <span class="bar-idx">07</span>
+              <span class="bar-idx">08</span>
               <span class="bar-name">Settings</span>
               <span class="bar-sep"></span>
               <span class="bar-desc">Stored in this browser, themed light or dark.</span>
@@ -589,7 +597,7 @@
             <span class="brand-name">chat</span>
           </div>
           <h1 class="line l1"><span>Make it yours.</span></h1>
-          <p class="sub">React is the only dependency. One adapter, any model.</p>
+          <p class="sub">Tailwind and shadcn/ui. One adapter, any model.</p>
           <span class="chip"><b>$</b> npm run build</span>
         </div>
         <div class="foot">WEB CHAT TEMPLATE</div>
@@ -619,7 +627,7 @@
       tl.fromTo("#s2", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, immediateRender: false }, 7.95);
 
       //the other surfaces
-      const tourT = [8.2, 9.8, 11.4, 13.0, 14.6];
+      const tourT = [8.2, 9.55, 10.9, 12.25, 13.6, 14.95];
       tl.fromTo("#s3", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 8.15);
       tl.fromTo("#s3 .window", { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power2.out" }, 8.2);
       tourT.forEach((t, i) => {

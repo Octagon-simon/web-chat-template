@@ -1,10 +1,10 @@
 # Demo video
 
 A 30-second, unnarrated screen tour of the chat template: title, chat hero,
-composer detail, the five rail surfaces, the light/dark switch, the phone
-layout, end card.
+composer detail, the six rail surfaces (including sign in), the light/dark
+switch, the phone layout, end card.
 
-Output: `renders/video.mp4` (1920x1080, 30fps, H.264, 7.9 MB) with
+Output: `renders/video.mp4` (1920x1080, 30fps, H.264, 7.8 MB) with
 `renders/poster.jpg` for thumbnails.
 
 ## Rebuild

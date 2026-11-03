@@ -20,11 +20,16 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       description="These work anywhere outside a text field."
       onClose={onClose}
     >
-      <ul className="shortcut-list">
+      <ul className="m-0 list-none p-0">
         {SHORTCUTS.map((shortcut) => (
-          <li key={shortcut.label}>
-            <span>{shortcut.label}</span>
-            <kbd>{shortcut.keys}</kbd>
+          <li
+            key={shortcut.label}
+            className="flex items-center justify-between gap-3 border-b border-border-soft py-2 text-sm last:border-0"
+          >
+            <span className="text-muted-foreground">{shortcut.label}</span>
+            <kbd className="rounded-md bg-secondary px-2 py-0.5 font-mono text-xs text-foreground">
+              {shortcut.keys}
+            </kbd>
           </li>
         ))}
       </ul>

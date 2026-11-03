@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { formatBytes } from "../lib/attachments";
-import { Markdown } from "../lib/markdown";
-import type { Attachment, ChatMessage, Thread } from "../lib/types";
+import { useEffect, useRef, useState } from "react";
+
+import { IconButton } from "./icon-button";
+import { formatBytes } from "@/lib/attachments";
+import { useAutoResize } from "@/hooks/use-auto-resize";
+import { useClipboard } from "@/hooks/use-clipboard";
+import { useReadAloud } from "@/hooks/use-read-aloud";
+import { useScrollAnchor } from "@/hooks/use-scroll-anchor";
+import { Markdown } from "@/lib/markdown";
+import { cn } from "@/lib/utils";
+import type { Attachment, ChatMessage, Thread } from "@/lib/types";
 import {
   IconArrowDown,
   IconCamera,
@@ -15,70 +22,36 @@ import {
   IconVolume,
 } from "./Icons";
 
-//browser speech synthesis; no key and no network
-function useReadAloud() {
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      window.speechSynthesis?.cancel();
-    };
-  }, []);
-
-  const toggle = useCallback(
-    (id: string, text: string) => {
-      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-      if (speakingId === id) {
-        window.speechSynthesis.cancel();
-        setSpeakingId(null);
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => setSpeakingId(null);
-      utterance.onerror = () => setSpeakingId(null);
-      window.speechSynthesis.speak(utterance);
-      setSpeakingId(id);
-    },
-    [speakingId],
-  );
-
-  return { speakingId, toggle };
-}
-
-function useCopy() {
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback((text: string) => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    });
-  }, []);
-  return { copied, copy };
-}
+const actionButton =
+  "size-7 rounded-md text-faint hover:text-foreground max-[860px]:size-10";
 
 function AttachmentList({ items }: { items: Attachment[] }) {
   return (
-    <div className="msg-attachments">
+    <div className="mb-1.5 flex flex-wrap gap-1.5">
       {items.map((item) =>
         item.preview ? (
           <a
             key={item.id}
-            className="msg-attach is-image"
             href={item.preview}
             target="_blank"
             rel="noreferrer"
             onClick={(event) => event.stopPropagation()}
+            className="block max-w-[180px] overflow-hidden rounded-xl border border-border-soft bg-card"
           >
-            <img src={item.preview} alt={item.name} />
-            <span>{item.name}</span>
+            <img src={item.preview} alt={item.name} className="block max-h-[140px] w-full object-cover" />
+            <span className="block truncate px-2 py-1 text-xs text-muted-foreground">
+              {item.name}
+            </span>
           </a>
         ) : (
-          <span key={item.id} className="msg-attach">
+          <span
+            key={item.id}
+            className="flex max-w-[240px] items-center gap-2 rounded-xl border border-border-soft bg-card px-2.5 py-1.5"
+          >
             {item.kind === "screenshot" ? <IconCamera size={15} /> : <IconFile size={15} />}
-            <span className="msg-attach-text">
-              <span className="msg-attach-name">{item.name}</span>
-              <span className="msg-attach-size">{formatBytes(item.size)}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-medium">{item.name}</span>
+              <span className="block text-xs text-faint">{formatBytes(item.size)}</span>
             </span>
           </span>
         ),
@@ -87,21 +60,27 @@ function AttachmentList({ items }: { items: Attachment[] }) {
   );
 }
 
-function UserRow({ message, onEdit }: { message: ChatMessage; onEdit: (id: string, text: string) => void }) {
+function UserRow({
+  message,
+  onEdit,
+}: {
+  message: ChatMessage;
+  onEdit: (id: string, text: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useClipboard();
   const input = useRef<HTMLTextAreaElement>(null);
 
-  useLayoutEffect(() => {
+  useAutoResize(input, [editing, draft], 320);
+
+  useEffect(() => {
     if (!editing) return;
     const el = input.current;
     if (!el) return;
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
-  }, [editing, draft]);
+  }, [editing]);
 
   const save = () => {
     const next = draft.trim();
@@ -111,10 +90,10 @@ function UserRow({ message, onEdit }: { message: ChatMessage; onEdit: (id: strin
   };
 
   return (
-    <div className="row row-user">
-      <div className="bubble-stack">
+    <div className="group/row mt-6 mb-1.5 flex animate-rise justify-end">
+      <div className="relative flex max-w-[82%] flex-col items-end max-[860px]:max-w-[88%]">
         {editing ? (
-          <div className="bubble is-editing">
+          <div className="w-[min(560px,100%)] rounded-bubble bg-card px-3 py-2.5 shadow-card">
             <textarea
               ref={input}
               value={draft}
@@ -126,29 +105,46 @@ function UserRow({ message, onEdit }: { message: ChatMessage; onEdit: (id: strin
                 }
                 if (event.key === "Escape") setEditing(false);
               }}
+              className="w-full resize-none border-0 bg-transparent p-0 text-base leading-6 text-foreground outline-none"
             />
-            <div className="edit-controls">
-              <button type="button" className="ghost" onClick={() => setEditing(false)}>
+            <div className="mt-1.5 flex justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-hover max-[860px]:min-h-10"
+              >
                 Cancel
               </button>
-              <button type="button" className="primary" onClick={save}>
+              <button
+                type="button"
+                onClick={save}
+                className="rounded-full bg-send px-3 py-1.5 text-sm font-medium text-send-foreground max-[860px]:min-h-10"
+              >
                 Send
               </button>
             </div>
           </div>
         ) : (
-          <div className="bubble">
+          <div className="rounded-bubble bg-bubble px-4 py-2.5 text-base leading-6 whitespace-pre-wrap text-bubble-foreground [overflow-wrap:anywhere]">
             {message.attachments?.length ? <AttachmentList items={message.attachments} /> : null}
-            {message.content ? <span className="bubble-text">{message.content}</span> : null}
+            {message.content ? <span>{message.content}</span> : null}
           </div>
         )}
-        <div className="actions actions-user">
-          <button type="button" onClick={() => copy(message.content)} aria-label="Copy message">
+        <div className="mt-1 flex gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 max-[860px]:opacity-100 [@media(hover:none)]:opacity-100">
+          <IconButton
+            label="Copy message"
+            onClick={() => copy(message.content)}
+            className={actionButton}
+          >
             {copied ? <IconCheck /> : <IconCopy />}
-          </button>
-          <button type="button" onClick={() => setEditing((v) => !v)} aria-label="Edit message">
+          </IconButton>
+          <IconButton
+            label="Edit message"
+            onClick={() => setEditing((value) => !value)}
+            className={actionButton}
+          >
             <IconPencil />
-          </button>
+          </IconButton>
         </div>
       </div>
     </div>
@@ -174,7 +170,7 @@ function AssistantRow({
   canRegenerate: boolean;
   showMeta: boolean;
 }) {
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useClipboard();
   const meta = showMeta
     ? [
         message.model,
@@ -184,61 +180,79 @@ function AssistantRow({
     : [];
 
   return (
-    <div className="row row-assistant">
-      {message.error && <p className="row-error">{message.error}</p>}
+    <div className="group/row mt-2.5 mb-[30px] animate-rise">
+      {message.error && (
+        <p className="mt-0 mb-3 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-2.5 text-sm leading-[21px] text-destructive">
+          {message.error}
+        </p>
+      )}
 
       {message.content ? (
         <Markdown source={message.content} />
       ) : (
-        <div className="thinking" aria-label="Waiting for the model">
-          <span />
-          <span />
-          <span />
+        <div className="flex gap-1 py-1.5" aria-label="Waiting for the model">
+          <span className="size-1.5 animate-typing rounded-full bg-faint" />
+          <span className="size-1.5 animate-typing rounded-full bg-faint [animation-delay:150ms]" />
+          <span className="size-1.5 animate-typing rounded-full bg-faint [animation-delay:300ms]" />
         </div>
       )}
 
-      {streaming && message.content && <span className="caret" aria-hidden="true" />}
+      {streaming && message.content && (
+        <span aria-hidden="true" className="ml-1 inline-block size-2 animate-blink rounded-full bg-foreground align-middle" />
+      )}
 
       {!streaming && message.content && (
-        <div className="assistant-foot">
-          <div className="actions">
-            <button type="button" onClick={() => copy(message.content)} aria-label="Copy response">
+        <div className="mt-0.5 flex min-h-7 items-center gap-3">
+          <div className="flex gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 max-[860px]:opacity-100 [@media(hover:none)]:opacity-100">
+            <IconButton
+              label="Copy response"
+              onClick={() => copy(message.content)}
+              className={actionButton}
+            >
               {copied ? <IconCheck /> : <IconCopy />}
-            </button>
-            <button
-              type="button"
-              className={message.feedback === "up" ? "is-on" : undefined}
-              aria-label="Good response"
+            </IconButton>
+            <IconButton
+              label="Good response"
+              active={message.feedback === "up"}
               aria-pressed={message.feedback === "up"}
               onClick={() => onFeedback(message.feedback === "up" ? null : "up")}
+              className={cn(actionButton, message.feedback === "up" && "text-brand")}
             >
               <IconThumbUp />
-            </button>
-            <button
-              type="button"
-              className={message.feedback === "down" ? "is-on" : undefined}
-              aria-label="Bad response"
+            </IconButton>
+            <IconButton
+              label="Bad response"
+              active={message.feedback === "down"}
               aria-pressed={message.feedback === "down"}
               onClick={() => onFeedback(message.feedback === "down" ? null : "down")}
+              className={cn(actionButton, message.feedback === "down" && "text-brand")}
             >
               <IconThumbDown />
-            </button>
-            <button
-              type="button"
-              className={speaking ? "is-on" : undefined}
-              aria-label={speaking ? "Stop reading" : "Read aloud"}
+            </IconButton>
+            <IconButton
+              label={speaking ? "Stop reading" : "Read aloud"}
+              active={speaking}
               aria-pressed={speaking}
               onClick={onRead}
+              className={cn(actionButton, speaking && "text-brand")}
             >
               <IconVolume />
-            </button>
+            </IconButton>
             {canRegenerate && (
-              <button type="button" onClick={onRegenerate} aria-label="Regenerate response">
+              <IconButton
+                label="Regenerate response"
+                onClick={onRegenerate}
+                className={actionButton}
+              >
                 <IconReload />
-              </button>
+              </IconButton>
             )}
           </div>
-          {meta.length > 0 && <span className="meta">{meta.join(" · ")}</span>}
+          {meta.length > 0 && (
+            <span className="text-xs text-faint opacity-0 transition-opacity group-hover/row:opacity-100 max-[860px]:opacity-100">
+              {meta.join(" · ")}
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -264,66 +278,46 @@ export function ThreadView({
   showMeta,
   children,
 }: ThreadViewProps) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const [pinned, setPinned] = useState(true);
-  const { speakingId, toggle } = useReadAloud();
   const messages = thread?.messages ?? [];
+  const { ref, pinned, toBottom } = useScrollAnchor(messages, streamingId);
+  const { speakingId, toggle } = useReadAloud();
 
-  useEffect(() => {
-    const el = scroller.current;
-    if (!el) return;
-    const onScroll = () => {
-      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-      setPinned(distance < 96);
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useLayoutEffect(() => {
-    const el = scroller.current;
-    if (el && pinned) el.scrollTop = el.scrollHeight;
-  }, [messages, streamingId, pinned]);
-
-  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const lastAssistant = [...messages].reverse().find((message) => message.role === "assistant");
 
   return (
-    <div className="thread-wrap">
-      <div className="thread" ref={scroller}>
-        <div className="thread-inner">
-          {messages.length === 0 ? (
-            children
-          ) : (
-            messages.map((message) =>
-              message.role === "user" ? (
-                <UserRow key={message.id} message={message} onEdit={onEdit} />
-              ) : (
-                <AssistantRow
-                  key={message.id}
-                  message={message}
-                  streaming={message.id === streamingId}
-                  onRegenerate={onRegenerate}
-                  onFeedback={(value) => onFeedback(message.id, value)}
-                  onRead={() => toggle(message.id, message.content)}
-                  speaking={speakingId === message.id}
-                  canRegenerate={message.id === lastAssistant?.id && streamingId === null}
-                  showMeta={showMeta}
-                />
-              ),
-            )
-          )}
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={ref}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]"
+      >
+        <div className="mx-auto flex min-h-full w-full max-w-column flex-col px-4 pt-7 pb-2 max-[860px]:px-3.5 max-[860px]:pt-4 max-[860px]:pb-1">
+          {messages.length === 0
+            ? children
+            : messages.map((message) =>
+                message.role === "user" ? (
+                  <UserRow key={message.id} message={message} onEdit={onEdit} />
+                ) : (
+                  <AssistantRow
+                    key={message.id}
+                    message={message}
+                    streaming={message.id === streamingId}
+                    onRegenerate={onRegenerate}
+                    onFeedback={(value) => onFeedback(message.id, value)}
+                    onRead={() => toggle(message.id, message.content)}
+                    speaking={speakingId === message.id}
+                    canRegenerate={message.id === lastAssistant?.id && streamingId === null}
+                    showMeta={showMeta}
+                  />
+                ),
+              )}
         </div>
       </div>
 
       {!pinned && messages.length > 0 && (
         <button
           type="button"
-          className="jump"
-          onClick={() => {
-            const el = scroller.current;
-            if (el) el.scrollTop = el.scrollHeight;
-            setPinned(true);
-          }}
+          onClick={toBottom}
+          className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm text-muted-foreground shadow-[0_4px_16px_rgba(0,0,0,0.1)]"
         >
           <IconArrowDown />
           Jump to latest

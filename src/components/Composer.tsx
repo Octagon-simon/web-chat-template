@@ -1,11 +1,29 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { dataUrlBytes, fileToAttachment, formatBytes } from "../lib/attachments";
-import type { Attachment } from "../lib/types";
-import { useSpeech } from "../lib/useSpeech";
-import type { Project } from "../lib/workspace";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useComposer } from "@/hooks/use-composer";
+import { formatBytes } from "@/lib/attachments";
+import type { Attachment } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { Project } from "@/lib/workspace";
+import { IconButton } from "./icon-button";
 import {
   IconCamera,
-  IconCheck,
   IconFile,
   IconMic,
   IconPaperclip,
@@ -46,8 +64,6 @@ const MODES = [
   { id: "search", label: "Search", Icon: IconSearch },
 ];
 
-const MAX_FILES = 6;
-
 export function Composer({
   streaming,
   onSend,
@@ -68,159 +84,43 @@ export function Composer({
   skillsOn,
   sendOnEnter,
 }: ComposerProps) {
-  const [value, setValue] = useState("");
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  // `?menu=files` opens the attach menu on load, for docs and screenshots.
-  const [menuOpen, setMenuOpen] = useState(
-    () => new URLSearchParams(location.search).get("menu") === "files",
-  );
-  const [note, setNote] = useState<string | null>(null);
-  const input = useRef<HTMLTextAreaElement>(null);
-  const tools = useRef<HTMLDivElement>(null);
-  const files = useRef<HTMLInputElement>(null);
-  const speechBase = useRef("");
-
-  const speech = useSpeech((text) => {
-    setValue(speechBase.current + text);
-  });
-
-  useLayoutEffect(() => {
-    const el = input.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [value]);
-
-  useLayoutEffect(() => {
-    if (autoFocusKey > 0) input.current?.focus();
-  }, [autoFocusKey]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (event: PointerEvent) => {
-      if (!tools.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
-
-  const submit = () => {
-    const text = value.trim();
-    if ((!text && attachments.length === 0) || streaming) return;
-    onSend(text, attachments);
-    setValue("");
-    setAttachments([]);
-    setNote(null);
-  };
-
-  const addFiles = async (picked: FileList | null) => {
-    if (!picked?.length) return;
-    const room = MAX_FILES - attachments.length;
-    if (room <= 0) {
-      setNote(`You can attach up to ${MAX_FILES} files.`);
-      return;
-    }
-    const accepted = Array.from(picked).slice(0, room);
-    const next = await Promise.all(accepted.map(fileToAttachment));
-    setAttachments((prev) => [...prev, ...next]);
-    if (picked.length > room) setNote(`Only ${MAX_FILES} files per message.`);
-  };
-
-  const capture = async () => {
-    setMenuOpen(false);
-    const media = navigator.mediaDevices;
-    if (!media?.getDisplayMedia) {
-      setNote("Screen capture is not available in this browser.");
-      return;
-    }
-    setNote("Capturing a frame…");
-    let stream: MediaStream | null = null;
-    try {
-      stream = await media.getDisplayMedia({ video: true, audio: false });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.muted = true;
-      await new Promise<void>((resolve) => {
-        video.onloadedmetadata = () => resolve();
-      });
-      await video.play();
-      await new Promise((resolve) => window.setTimeout(resolve, 180));
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      if (!canvas.width || !canvas.height) throw new Error("No frame was available.");
-      canvas.getContext("2d")?.drawImage(video, 0, 0);
-      const preview = canvas.toDataURL("image/jpeg", 0.72);
-      setAttachments((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          name: `Screenshot ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-          kind: "screenshot",
-          size: dataUrlBytes(preview),
-          preview,
-        },
-      ]);
-      setNote(null);
-    } catch (error) {
-      const aborted = error instanceof DOMException && error.name === "NotAllowedError";
-      setNote(aborted ? "Screen capture was cancelled." : "Could not capture that screen.");
-    } finally {
-      stream?.getTracks().forEach((track) => track.stop());
-    }
-  };
-
-  const toggleMic = () => {
-    if (speech.listening) {
-      speech.stop();
-      return;
-    }
-    speechBase.current = value.trim() ? `${value.trimEnd()} ` : "";
-    speech.start();
-  };
-
-  const canSend = value.trim() !== "" || attachments.length > 0;
+  const composer = useComposer({ streaming, sendOnEnter, autoFocusKey, onSend });
+  const { speech } = composer;
 
   return (
     <form
-      className="composer"
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        composer.submit();
       }}
+      className="mx-auto w-full max-w-column rounded-card bg-card px-2.5 pt-2.5 pb-2 pl-3.5 shadow-card transition-shadow focus-within:shadow-card-focus max-[560px]:px-2 max-[560px]:pt-[9px] max-[560px]:pb-[7px] max-[560px]:pl-3"
     >
-      {attachments.length > 0 && (
-        <div className="attach-tray">
-          {attachments.map((item) => (
-            <div className={item.preview ? "attach is-image" : "attach"} key={item.id}>
+      {composer.attachments.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {composer.attachments.map((item) => (
+            <div
+              key={item.id}
+              className="flex max-w-[230px] items-center gap-2 rounded-lg border border-border-soft bg-background py-1 pr-1 pl-1.5"
+            >
               {item.preview ? (
-                <img src={item.preview} alt="" />
+                <img src={item.preview} alt="" className="size-[34px] shrink-0 rounded-md object-cover" />
               ) : item.kind === "screenshot" ? (
-                <IconCamera size={16} />
+                <IconCamera size={16} className="shrink-0 text-muted-foreground" />
               ) : (
-                <IconFile size={16} />
+                <IconFile size={16} className="shrink-0 text-muted-foreground" />
               )}
-              <span className="attach-text">
-                <span className="attach-name">{item.name}</span>
-                <span className="attach-size">{formatBytes(item.size)}</span>
+              <span className="flex min-w-0 flex-col text-xs leading-tight">
+                <span className="truncate">{item.name}</span>
+                <span className="text-faint">{formatBytes(item.size)}</span>
               </span>
-              <button
-                type="button"
-                className="attach-remove"
-                aria-label={`Remove ${item.name}`}
-                onClick={() =>
-                  setAttachments((prev) => prev.filter((entry) => entry.id !== item.id))
-                }
+              <IconButton
+                label={`Remove ${item.name}`}
+                tooltip={false}
+                onClick={() => composer.removeAttachment(item.id)}
+                className="size-5 shrink-0 rounded-md text-faint max-[860px]:size-8"
               >
                 <IconX size={13} />
-              </button>
+              </IconButton>
             </div>
           ))}
         </div>
@@ -231,226 +131,170 @@ export function Composer({
       </label>
       <textarea
         id="composer-input"
-        ref={input}
+        ref={composer.input}
         rows={1}
-        value={value}
+        value={composer.value}
         placeholder={placeholder}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={(event) => {
-          const withMod = event.metaKey || event.ctrlKey;
-          const sends = sendOnEnter
-            ? event.key === "Enter" && !event.shiftKey && !withMod
-            : event.key === "Enter" && withMod;
-          if (sends && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            submit();
-          }
-        }}
+        onChange={(event) => composer.setValue(event.target.value)}
+        onKeyDown={composer.handleKeyDown}
+        className="block max-h-[220px] min-h-6 w-full resize-none border-0 bg-transparent px-0.5 py-1 text-base leading-6 text-foreground outline-none placeholder:text-faint max-[860px]:min-h-10"
       />
 
-      {(note || speech.error) && (
-        <p className="composer-note" role="status">
-          {note || speech.error}
+      {(composer.note || speech.error) && (
+        <p role="status" className="mt-0.5 mb-0 text-xs leading-snug text-destructive">
+          {composer.note || speech.error}
         </p>
       )}
 
-      <div className="composer-bar">
-        <div className="composer-left">
-          <div className="composer-tool" ref={tools}>
-            <button
-              type="button"
-              className={menuOpen ? "icon-btn is-on" : "icon-btn"}
-              aria-label="Add files and tools"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <IconPlus />
-            </button>
+      <div className="mt-1.5 flex items-center justify-between gap-2 max-[560px]:flex-wrap max-[560px]:gap-y-1">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-visible max-[560px]:flex-[1_1_100%] max-[560px]:gap-0.5">
+          <DropdownMenu open={composer.menuOpen} onOpenChange={composer.setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <IconButton label="Add files and tools" tooltip={false} active={composer.menuOpen}>
+                <IconPlus />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="max-h-[380px] w-[252px] overflow-y-auto">
+              <DropdownMenuItem onSelect={() => composer.files.current?.click()}>
+                <IconUpload />
+                <span className="min-w-0 flex-1">Upload files</span>
+                <span className="shrink-0 text-xs text-faint">Images, PDFs, text</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!navigator.mediaDevices?.getDisplayMedia}
+                onSelect={() => void composer.capture()}
+              >
+                <IconCamera />
+                <span className="min-w-0 flex-1">Take a screenshot</span>
+                <span className="shrink-0 text-xs text-faint">Share a tab</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenSkills}>
+                <IconSparkles />
+                <span className="min-w-0 flex-1">Skills</span>
+                <span className="shrink-0 text-xs text-faint">
+                  {skillsOn > 0 ? `${skillsOn} active` : "None active"}
+                </span>
+              </DropdownMenuItem>
 
-            {menuOpen && (
-              <div className="tool-menu" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    files.current?.click();
-                  }}
-                >
-                  <IconUpload />
-                  <span className="grow">Upload files</span>
-                  <span className="tool-hint">Images, PDFs, text</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={capture}
-                  disabled={!navigator.mediaDevices?.getDisplayMedia}
-                >
-                  <IconCamera />
-                  <span className="grow">Take a screenshot</span>
-                  <span className="tool-hint">Share a tab</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenSkills();
-                  }}
-                >
-                  <IconSparkles />
-                  <span className="grow">Skills</span>
-                  <span className="tool-hint">
-                    {skillsOn > 0 ? `${skillsOn} active` : "None active"}
-                  </span>
-                </button>
+              <DropdownMenuLabel>Add to project</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={activeProjectId ?? "none"}
+                onValueChange={(value) => onAddToProject(value === "none" ? null : value)}
+              >
+                <DropdownMenuRadioItem value="none">No project</DropdownMenuRadioItem>
+                {projects.map((project) => (
+                  <DropdownMenuRadioItem key={project.id} value={project.id}>
+                    <span
+                      aria-hidden="true"
+                      className="size-[9px] shrink-0 rounded-[4px]"
+                      style={{ background: project.color }}
+                    />
+                    {project.name}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
 
-                <div className="tool-label">Add to project</div>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={activeProjectId === null}
-                  onClick={() => {
-                    onAddToProject(null);
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="tool-icon">
-                    {activeProjectId === null && <IconCheck size={14} />}
-                  </span>
-                  <span className="grow">No project</span>
-                </button>
-                {projects.map((project) => {
-                  const checked = project.id === activeProjectId;
-                  return (
-                    <button
-                      key={project.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={checked}
-                      onClick={() => {
-                        onAddToProject(project.id);
-                        setMenuOpen(false);
-                      }}
-                    >
-                      <span className="tool-icon">
-                        {checked ? (
-                          <IconCheck size={14} />
-                        ) : (
-                          <span
-                            className="project-dot"
-                            style={{ background: project.color }}
-                          />
-                        )}
-                      </span>
-                      <span className="grow">{project.name}</span>
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenProjects();
-                  }}
-                >
-                  <span className="tool-icon">
-                    <IconPaperclip size={14} />
-                  </span>
-                  <span className="grow">Manage projects</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenConnectors();
-                  }}
-                >
-                  <span className="tool-icon">
-                    <IconPlug size={14} />
-                  </span>
-                  <span className="grow">Connect apps</span>
-                  <span className="tool-hint">Tools and data</span>
-                </button>
-              </div>
-            )}
-          </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onOpenProjects}>
+                <IconPaperclip />
+                <span className="min-w-0 flex-1">Manage projects</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenConnectors}>
+                <IconPlug />
+                <span className="min-w-0 flex-1">Connect apps</span>
+                <span className="shrink-0 text-xs text-faint">Tools and data</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {MODES.map(({ id, label, Icon }) => {
             const on = Boolean(modes[id]);
             return (
-              <button
+              <Button
                 key={id}
                 type="button"
-                className={on ? "chip is-on" : "chip is-icon"}
+                size="sm"
+                variant={on ? "secondary" : "ghost"}
                 aria-label={label}
                 aria-pressed={on}
-                title={label}
                 onClick={() => onToggleMode(id)}
+                className={cn(
+                  "h-8 rounded-full text-sm font-normal text-muted-foreground hover:text-foreground max-[860px]:h-10",
+                  on
+                    ? "gap-1.5 border border-brand/22 bg-brand-soft px-2.5 text-brand hover:bg-brand-soft hover:text-brand"
+                    : "size-8 px-0 max-[860px]:size-10",
+                )}
               >
                 <Icon />
-                {on && <span className="chip-label">{label}</span>}
-              </button>
+                {on && <span className="hidden min-[560px]:inline">{label}</span>}
+                {on && <span className="sr-only min-[560px]:hidden">{label}</span>}
+              </Button>
             );
           })}
         </div>
 
-        <div className="composer-right">
-          <div className="select-wrap">
-            <select
-              value={model}
-              onChange={(event) => onModel(event.target.value)}
+        <div className="flex flex-none items-center gap-1.5 max-[560px]:flex-[1_1_100%]">
+          <Select value={model} onValueChange={onModel}>
+            <SelectTrigger
               aria-label="Model"
+              size="sm"
+              className="h-8 max-w-[190px] gap-1 rounded-full border-0 bg-transparent px-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground max-[560px]:mr-auto max-[560px]:h-10 max-[560px]:max-w-[160px] max-[860px]:h-10"
             >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {models.map((entry) => (
-                <option key={entry.id} value={entry.id}>
+                <SelectItem key={entry.id} value={entry.id}>
                   {entry.label}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </div>
+            </SelectContent>
+          </Select>
 
-          <button
-            type="button"
-            className={speech.listening ? "icon-btn is-live" : "icon-btn"}
-            aria-label={speech.listening ? "Stop dictation" : "Dictate a message"}
+          <IconButton
+            label={speech.listening ? "Stop dictation" : "Dictate a message"}
+            active={speech.listening}
             aria-pressed={speech.listening}
-            title={speech.supported ? "Dictate" : "Speech recognition is not supported here"}
-            onClick={toggleMic}
+            title={speech.supported ? undefined : "Speech recognition is not supported here"}
+            onClick={composer.toggleMic}
+            className={cn(speech.listening && "animate-live bg-destructive/15 text-destructive")}
           >
             <IconMic />
-          </button>
+          </IconButton>
 
           {streaming ? (
-            <button type="button" className="send is-stop" onClick={onStop} aria-label="Stop generating">
+            <Button
+              type="button"
+              size="icon"
+              onClick={onStop}
+              aria-label="Stop generating"
+              className="size-8 rounded-full bg-send text-send-foreground hover:scale-105 hover:bg-send max-[860px]:size-10"
+            >
               <IconStop />
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="submit"
-              className="send"
-              disabled={!canSend}
+              size="icon"
+              disabled={!composer.canSend}
               aria-label="Send message"
+              className="size-8 rounded-full bg-send text-send-foreground transition-transform hover:scale-105 hover:bg-send disabled:opacity-28 max-[860px]:size-10"
             >
               <IconSend />
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       <input
-        ref={files}
+        ref={composer.files}
         type="file"
         multiple
         hidden
         tabIndex={-1}
         accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx"
         onChange={(event) => {
-          void addFiles(event.target.files);
+          void composer.addFiles(event.target.files);
           event.target.value = "";
         }}
       />

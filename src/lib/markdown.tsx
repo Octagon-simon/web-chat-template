@@ -1,7 +1,28 @@
-import { createElement, useState, type ReactNode } from "react";
+import { createElement, useMemo, type ReactNode } from "react";
+import { Check, Copy } from "lucide-react";
+
+import { useClipboard } from "@/hooks/use-clipboard";
+import { highlight, languageLabel, type TokenKind } from "@/lib/highlight";
 
 const INLINE =
   /`([^`\n]+)`|\*\*([^*\n]+)\*\*|__([^_\n]+)__|\*([^*\n]+)\*|_([^_\n]+)_|~~([^~\n]+)~~|\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+
+const PROSE = [
+  "prose prose-neutral max-w-none text-base leading-[26px] text-foreground dark:prose-invert",
+  "[overflow-wrap:anywhere]",
+  "prose-headings:font-semibold prose-headings:text-foreground prose-headings:tracking-[-0.01em]",
+  "prose-h1:mt-6 prose-h1:mb-2.5 prose-h1:text-2xl prose-h2:mt-6 prose-h2:mb-2.5 prose-h2:text-xl",
+  "prose-h3:mt-6 prose-h3:mb-2.5 prose-h3:text-lg prose-h4:mt-4 prose-h4:mb-2 prose-h4:text-base",
+  "prose-p:my-0 prose-p:mb-3.5 prose-ul:my-0 prose-ul:mb-3.5 prose-ol:my-0 prose-ol:mb-3.5",
+  "prose-li:my-1 prose-blockquote:my-0 prose-blockquote:mb-3.5 prose-blockquote:border-l-2",
+  "prose-blockquote:px-3.5 prose-blockquote:font-normal prose-blockquote:text-muted-foreground",
+  "prose-hr:my-5 prose-hr:border-border-soft",
+  "prose-a:font-normal prose-a:text-brand prose-a:underline-offset-2",
+  "prose-code:rounded-md prose-code:bg-code prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono",
+  "prose-code:text-sm prose-code:font-normal prose-code:text-foreground",
+  "prose-code:before:content-none prose-code:after:content-none",
+  "prose-strong:text-foreground",
+].join(" ");
 
 function safeHref(href: string): string {
   return /^(https?:\/\/|mailto:|\/)/i.test(href) ? href : "#";
@@ -38,28 +59,47 @@ function inline(text: string, keyBase: string): ReactNode[] {
   return out;
 }
 
-function CodeBlock({ lang, code }: { lang: string; code: string }) {
-  const [copied, setCopied] = useState(false);
+const TOKEN_CLASS: Record<Exclude<TokenKind, "plain">, string> = {
+  comment: "text-syn-comment",
+  string: "text-syn-string",
+  number: "text-syn-number",
+  keyword: "text-syn-keyword",
+  literal: "text-syn-number",
+  function: "text-syn-function",
+  type: "text-syn-type",
+  property: "text-syn-property",
+  tag: "text-syn-tag",
+  attr: "text-syn-attr",
+  punctuation: "text-syn-punct",
+};
 
-  const copy = () => {
-    void navigator.clipboard.writeText(code).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    });
-  };
+function CodeBlock({ lang, code }: { lang: string; code: string }) {
+  const { copied, copy } = useClipboard();
+  const tokens = useMemo(() => highlight(code, lang), [code, lang]);
 
   return (
-    <div className="md-codeblock">
-      <div className="md-codeblock-bar">
-        <span>{lang || "code"}</span>
-        <button type="button" onClick={copy}>
+    <figure className="not-prose my-4 overflow-hidden rounded-xl border border-border-soft bg-code">
+      <figcaption className="flex items-center justify-between gap-3 border-b border-border-soft py-1 pr-1.5 pl-4 max-[860px]:py-0">
+        <span className="truncate text-xs font-medium text-faint">{languageLabel(lang)}</span>
+        <button
+          type="button"
+          onClick={() => copy(code)}
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-hover hover:text-foreground max-[860px]:h-10 max-[860px]:px-3"
+        >
+          {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
           {copied ? "Copied" : "Copy"}
         </button>
-      </div>
-      <pre>
-        <code>{code}</code>
+      </figcaption>
+      <pre className="m-0 overflow-x-auto px-4 py-3 font-mono text-sm leading-[22px] [tab-size:2] [scrollbar-width:thin] max-[860px]:overflow-x-visible max-[860px]:whitespace-pre-wrap max-[860px]:[overflow-wrap:anywhere] max-[860px]:pr-5">
+        <code className="font-mono">
+          {tokens.map((token, index) => (
+            <span key={index} className={token.kind === "plain" ? undefined : TOKEN_CLASS[token.kind]}>
+              {token.text}
+            </span>
+          ))}
+        </code>
       </pre>
-    </div>
+    </figure>
   );
 }
 
@@ -98,11 +138,7 @@ export function Markdown({ source }: { source: string }) {
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       out.push(
-        createElement(
-          `h${heading[1].length}`,
-          { key: key++ },
-          inline(heading[2], `h${key}`),
-        ),
+        createElement(`h${heading[1].length}`, { key: key++ }, inline(heading[2], `h${key}`)),
       );
       i += 1;
       continue;
@@ -124,9 +160,7 @@ export function Markdown({ source }: { source: string }) {
         items.push(<li key={key++}>{inline(text, `li${key}`)}</li>);
         i += 1;
       }
-      out.push(
-        ordered ? <ol key={key++}>{items}</ol> : <ul key={key++}>{items}</ul>,
-      );
+      out.push(ordered ? <ol key={key++}>{items}</ol> : <ul key={key++}>{items}</ul>);
       continue;
     }
 
@@ -156,5 +190,5 @@ export function Markdown({ source }: { source: string }) {
     out.push(<p key={key++}>{inline(para.join(" "), `p${key}`)}</p>);
   }
 
-  return <div className="md">{out}</div>;
+  return <div className={PROSE}>{out}</div>;
 }

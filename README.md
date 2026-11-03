@@ -18,16 +18,16 @@ Without an API key the server streams a local demo reply, so a fresh clone works
 immediately. Keep the browser on 5173, since `/api` is proxied from there.
 
 `?demo=1` seeds a sample thread and two projects.
-`?panel=search|projects|skills|connectors|customize|settings|mobile` opens that
-surface on load.
+`?panel=login|signup|search|projects|skills|connectors|customize|settings|mobile`
+opens that surface on load.
 
 ## Build with an agent
 
 This repo ships [`AGENT.md`](AGENT.md), so a coding agent can clone it and scaffold
 the product for you: rebrand the shell, wire a model, add a screen, replace
-localStorage with a real backend. It states the constraints (React and React DOM
-are the only runtime dependencies, one stylesheet, 40px controls, light and dark
-themes), maps every file, and gives a per-task recipe with the exact seam to edit.
+localStorage with a real backend. It states the constraints (Tailwind v4 and shadcn/ui
+for everything visual, logic in hooks, 40px controls, light and dark themes), maps
+every file, and gives a per-task recipe with the exact seam to edit.
 
 Point your agent at the repo and say what you want:
 
@@ -71,6 +71,20 @@ VITE_MODELS=llama3.1:8b:Llama 3.1 8B,qwen2.5:14b:Qwen 2.5 14B
 
 Only `VITE_` values reach the bundle. Never put a key there.
 
+## Accounts
+
+`?panel=login` and `?panel=signup` are finished screens: split layout, field
+validation, password reveal, a pending state, and the same light and dark tokens
+as the app. The session lives in `useAuth` under `chat-template.session.v1`, so it
+survives a reload, the sidebar menu shows the signed-in email, and both that menu
+and Settings can change account or sign out.
+
+Nothing calls out. `signIn(email, name)` in `src/hooks/use-auth.ts` is the seam:
+replace its body with your provider request and keep the returned
+`{ name, email, plan }`. Google and GitHub say they are stubs when pressed. The
+app does not gate on the session, so a fresh clone and `?demo=1` still work
+without an account.
+
 ## Deploy
 
 ```bash
@@ -78,8 +92,9 @@ npm run build     # typecheck + bundle into dist/
 npm start         # serves dist/ and /api/chat on one port
 ```
 
-One Node process, no runtime dependencies. Behind Nginx or Cloudflare, disable
-response buffering for `/api/chat` (the server sends `x-accel-buffering: no`).
+One Node process, and the server has no runtime dependencies of its own. Behind
+Nginx or Cloudflare, disable response buffering for `/api/chat` (the server sends
+`x-accel-buffering: no`).
 
 ## Install it on a phone
 
@@ -99,10 +114,23 @@ rsvg-convert -w 512 -h 512 public/icon.svg -o public/icon-512.png
 
 ```
 src/lib/            adapter, useChat, workspace, markdown, attachments, speech, install
-src/components/     Sidebar, ThreadView, Composer, EmptyState, Dialog, pages/
-src/styles.css      design tokens first, then layout
+src/hooks/          theme, routing, auth, shortcuts, dialogs, composer, clipboard, read-aloud
+src/components/     Sidebar, ThreadView, Composer, EmptyState, pages/ (AuthPage is here)
+src/components/ui/  shadcn primitives: button, dialog, select, switch, dropdown, badge, card
+src/styles.css      Tailwind import, design tokens, base styles, keyframes
 server/index.mjs    SSE proxy + static host + demo mode
 ```
+
+Styling is Tailwind CSS v4 with shadcn/ui components: no hand-written class
+system, no component stylesheet. Tokens live in `:root` and
+`:root[data-theme="dark"]` in `src/styles.css` and are exported to utilities
+through `@theme inline`, so `bg-card`, `border-border` and `text-muted-foreground`
+switch with the theme. Behaviour lives in `src/hooks/`; components render.
+
+Fenced code blocks are coloured by `src/lib/highlight.ts`, a small tokenizer for
+JS/TS, JSON, Python, shell, CSS, HTML, YAML, SQL and Go. It is not a highlighter
+dependency: unknown languages fall back to strings, numbers and comments, and
+unterminated strings stay coloured while a reply streams.
 
 Swap the transport by implementing `ChatAdapter.stream()` in `lib/adapter.ts`
 and yielding `{ type: "delta", text }` then `{ type: "done", usage }`. Components
@@ -120,6 +148,7 @@ do not change.
 - Workspace state lives in `localStorage` (`chat-template.workspace.v1`); threads
   persist separately. Below 860px the rail becomes a drawer; below 560px the
   composer chips go icon-only.
-- Deliberately absent: auth, server storage, upload transport, a real share
-  route, server speech-to-text, connector OAuth. The UI is real and each one is
-  labelled with the seam where your backend goes. File bytes never leave the tab.
+- Deliberately absent: a server session, server storage, upload transport, a real
+  share route, server speech-to-text, connector and auth-provider OAuth. The UI
+  is real and each one is labelled with the seam where your backend goes. File
+  bytes never leave the tab.

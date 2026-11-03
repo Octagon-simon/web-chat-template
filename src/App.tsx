@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveDialog } from "./components/ArchiveDialog";
-import { ChatOptionsDialog } from "./components/ChatOptionsDialog";
-import { Composer } from "./components/Composer";
-import { EmptyState } from "./components/EmptyState";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+
+import { ArchiveDialog } from "@/components/ArchiveDialog";
+import { ChatOptionsDialog } from "@/components/ChatOptionsDialog";
+import { Composer } from "@/components/Composer";
+import { EmptyState } from "@/components/EmptyState";
+import { IconButton } from "@/components/icon-button";
 import {
   IconArrowLeft,
   IconGhost,
@@ -11,28 +13,54 @@ import {
   IconMore,
   IconShare,
   IconSun,
-} from "./components/Icons";
-import { ShortcutsDialog } from "./components/ShortcutsDialog";
-import { ConnectorsPage } from "./components/pages/ConnectorsPage";
-import { CustomizePage } from "./components/pages/CustomizePage";
-import { MobileAppPage } from "./components/pages/MobileAppPage";
-import { ProjectsPage } from "./components/pages/ProjectsPage";
-import { SettingsPage } from "./components/pages/SettingsPage";
-import { SkillsPage } from "./components/pages/SkillsPage";
-import { SearchDialog } from "./components/SearchDialog";
-import { ShareDialog } from "./components/ShareDialog";
-import { Sidebar } from "./components/Sidebar";
-import { ThreadView } from "./components/ThreadView";
-import { adapter } from "./lib/adapter";
-import { greetingLine, greetingName, timeGreeting } from "./lib/greeting";
-import { useChat } from "./lib/useChat";
-import { systemPrompt, useWorkspace } from "./lib/workspace";
-import type { ThemePref } from "./lib/types";
+} from "@/components/Icons";
+import { SearchDialog } from "@/components/SearchDialog";
+import { ShareDialog } from "@/components/ShareDialog";
+import { ShortcutsDialog } from "@/components/ShortcutsDialog";
+import { Sidebar } from "@/components/Sidebar";
+import { ThreadView } from "@/components/ThreadView";
+
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/use-auth";
+import { useDialogs } from "@/hooks/use-dialogs";
+import { useHotkeys } from "@/hooks/use-hotkeys";
+import { useShell } from "@/hooks/use-shell";
+import { useTheme } from "@/hooks/use-theme";
+import { useWorkspaceExport } from "@/hooks/use-workspace-export";
+import { adapter } from "@/lib/adapter";
+import { greetingLine, greetingName, timeGreeting } from "@/lib/greeting";
+import { useChat } from "@/lib/useChat";
+import { cn } from "@/lib/utils";
+import { VIEW_TITLE } from "@/lib/views";
+import { systemPrompt, useWorkspace } from "@/lib/workspace";
+
+//panels load on demand so the chat shell stays in the entry chunk
+const AuthPage = lazy(() =>
+  import("@/components/pages/AuthPage").then((m) => ({ default: m.AuthPage })),
+);
+const ConnectorsPage = lazy(() =>
+  import("@/components/pages/ConnectorsPage").then((m) => ({ default: m.ConnectorsPage })),
+);
+const CustomizePage = lazy(() =>
+  import("@/components/pages/CustomizePage").then((m) => ({ default: m.CustomizePage })),
+);
+const MobileAppPage = lazy(() =>
+  import("@/components/pages/MobileAppPage").then((m) => ({ default: m.MobileAppPage })),
+);
+const ProjectsPage = lazy(() =>
+  import("@/components/pages/ProjectsPage").then((m) => ({ default: m.ProjectsPage })),
+);
+const SettingsPage = lazy(() =>
+  import("@/components/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
+const SkillsPage = lazy(() =>
+  import("@/components/pages/SkillsPage").then((m) => ({ default: m.SkillsPage })),
+);
 
 const env = import.meta.env;
 
 const BRAND = String(env.VITE_BRAND ?? "Chat");
-// set VITE_HEADLINE to replace the personalized greeting
+//set VITE_HEADLINE to replace the personalized greeting
 const HEADLINE = env.VITE_HEADLINE ? String(env.VITE_HEADLINE) : null;
 const PLACEHOLDER = String(env.VITE_PLACEHOLDER ?? "Ask anything");
 const DISCLAIMER = String(
@@ -46,56 +74,15 @@ const SUGGESTIONS = String(
   .map((item) => item.trim())
   .filter(Boolean);
 
-const THEME_KEY = "chat-template.theme";
-
-type View = "chat" | "projects" | "connectors" | "customize" | "skills" | "settings" | "mobile";
-
-const VIEWS: View[] = ["projects", "connectors", "customize", "skills", "settings", "mobile"];
-
-const VIEW_TITLE: Record<Exclude<View, "chat">, string> = {
-  projects: "Projects",
-  connectors: "Connectors",
-  customize: "Customize",
-  skills: "Skills",
-  settings: "Settings",
-  mobile: "Mobile app",
-};
-
-function readPref(): ThemePref {
-  const saved = localStorage.getItem(THEME_KEY);
-  return saved === "light" || saved === "dark" ? saved : "system";
-}
-
-function resolve(pref: ThemePref): "light" | "dark" {
-  if (pref !== "system") return pref;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-/** `?panel=projects` opens a page on load, for docs and screenshots. */
-function initialView(): View {
-  const value = new URLSearchParams(location.search).get("panel");
-  if (value === "account") return "settings";
-  if (value && (VIEWS as string[]).includes(value)) return value as View;
-  return "chat";
-}
-
-function initialSearch(): boolean {
-  return new URLSearchParams(location.search).get("panel") === "search";
-}
-
 export default function App() {
   const workspace = useWorkspace();
+  const auth = useAuth();
+  const { theme, pref, setPref } = useTheme();
+  const { view, openPage, railOpen, setRailOpen } = useShell();
+  const dialogs = useDialogs();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [pref, setPref] = useState<ThemePref>(readPref);
-  const [theme, setTheme] = useState<"light" | "dark">(() => resolve(pref));
-  const [view, setView] = useState<View>(initialView);
-  const [searchOpen, setSearchOpen] = useState(initialSearch);
-  const [threadMenuId, setThreadMenuId] = useState<string | null>(null);
-  const [shareId, setShareId] = useState<string | null>(null);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [railOpen, setRailOpen] = useState(() => window.innerWidth > 860);
   const [focusKey, setFocusKey] = useState(0);
+  const [authEmail, setAuthEmail] = useState(auth.lastEmail);
 
   const activeSkills = useMemo(
     () => workspace.skills.filter((skill) => workspace.skillOn[skill.id]),
@@ -122,42 +109,10 @@ export default function App() {
   const connectorsOn = workspace.connectors.filter((item) => workspace.enabled[item.id]).length;
   const skillsOn = activeSkills.length;
   const activeThread = chat.thread;
-  const menuThread = chat.threads.find((thread) => thread.id === threadMenuId) ?? null;
-  const shareThread = chat.threads.find((thread) => thread.id === shareId) ?? null;
+  const menuThread = chat.threads.find((thread) => thread.id === dialogs.threadMenuId) ?? null;
+  const shareThread = chat.threads.find((thread) => thread.id === dialogs.shareId) ?? null;
 
-  useEffect(() => {
-    localStorage.setItem(THEME_KEY, pref);
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () =>
-      setTheme(pref === "system" ? (media.matches ? "dark" : "light") : pref);
-    apply();
-    if (pref !== "system") return;
-    media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
-  }, [pref]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    //an in-app theme override has to win over the OS preference in the manifest metas
-    const color = theme === "dark" ? "#0f0f10" : "#ffffff";
-    document
-      .querySelectorAll('meta[name="theme-color"]')
-      .forEach((meta) => meta.setAttribute("content", color));
-  }, [theme]);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const apply = () => {
-      document.documentElement.style.setProperty(
-        "--app-height",
-        `${Math.round(viewport.height)}px`,
-      );
-    };
-    apply();
-    viewport.addEventListener("resize", apply);
-    return () => viewport.removeEventListener("resize", apply);
-  }, []);
+  const exportData = useWorkspaceExport(chat.threads, workspace);
 
   useEffect(() => {
     if (activeProjectId && !workspace.projects.some((item) => item.id === activeProjectId)) {
@@ -165,19 +120,10 @@ export default function App() {
     }
   }, [activeProjectId, workspace.projects]);
 
-  const openPage = useCallback((next: View) => {
-    setView(next);
-    if (window.innerWidth <= 860) setRailOpen(false);
-    const url = new URL(window.location.href);
-    if (next === "chat") url.searchParams.delete("panel");
-    else url.searchParams.set("panel", next);
-    window.history.replaceState(null, "", url);
-  }, []);
-
   const openSearch = useCallback(() => {
-    setSearchOpen(true);
+    dialogs.setSearchOpen(true);
     if (window.innerWidth <= 860) setRailOpen(false);
-  }, []);
+  }, [dialogs.setSearchOpen, setRailOpen]);
 
   const newChat = useCallback(() => {
     chat.newThread();
@@ -229,41 +175,38 @@ export default function App() {
     [activeProjectId, chat.moveThread, chat.threads, workspace.removeProject],
   );
 
-  const exportData = useCallback(() => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      threads: chat.threads,
-      projects: workspace.projects,
-      skills: workspace.skills,
-      skillOn: workspace.skillOn,
-      connectors: workspace.connectors,
-      enabled: workspace.enabled,
-      instructions: workspace.instructions,
-      style: workspace.style,
-      profile: workspace.profile,
-      settings: workspace.settings,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "chat-workspace.json";
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, [chat.threads, workspace]);
-
   const clearData = useCallback(() => {
     chat.clearAll();
     workspace.reset();
+    auth.signOut();
     setActiveProjectId(null);
-    setSearchOpen(false);
-    setThreadMenuId(null);
-    setShareId(null);
+    dialogs.closeAll();
     openPage("chat");
-  }, [chat.clearAll, openPage, workspace.reset]);
+  }, [auth.signOut, chat.clearAll, dialogs.closeAll, openPage, workspace.reset]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
+  const signIn = useCallback(
+    (email: string, name = "") => {
+      const next = auth.signIn(email, name);
+      workspace.setProfile({ name: next.name, plan: next.plan });
+      openPage("chat");
+    },
+    [auth.signIn, openPage, workspace.setProfile],
+  );
+
+  const changeAccount = useCallback(() => {
+    setAuthEmail(auth.session?.email ?? "");
+    auth.signOut();
+    openPage("login");
+  }, [auth.session?.email, auth.signOut, openPage]);
+
+  const signOut = useCallback(() => {
+    setAuthEmail("");
+    auth.signOut();
+    openPage("login");
+  }, [auth.signOut, openPage]);
+
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
       if (mod && event.key.toLowerCase() === "j") {
         event.preventDefault();
@@ -284,313 +227,359 @@ export default function App() {
           target?.isContentEditable;
         if (typing) return;
         event.preventDefault();
-        setShortcutsOpen(true);
+        dialogs.setShortcutsOpen(true);
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [chat.isStreaming, chat.stop, newChat, openSearch]);
+    },
+    [
+      chat.isStreaming,
+      chat.stop,
+      dialogs.setShortcutsOpen,
+      newChat,
+      openSearch,
+      setRailOpen,
+    ],
+  );
+
+  useHotkeys(onKeyDown);
+
+  if (view === "login" || view === "signup") {
+    return (
+      <TooltipProvider>
+        <Suspense fallback={null}>
+          <AuthPage
+            mode={view}
+            brand={BRAND}
+            theme={theme}
+            defaultEmail={authEmail}
+            onTheme={() => setPref(theme === "dark" ? "light" : "dark")}
+            onSignIn={signIn}
+            onSignUp={(name, email) => signIn(email, name)}
+            onSwitch={openPage}
+            onClose={() => openPage("chat")}
+          />
+        </Suspense>
+      </TooltipProvider>
+    );
+  }
 
   return (
-    <div className={railOpen ? "app" : "app no-rail"}>
-      {railOpen && (
-        <Sidebar
-          brand={BRAND}
-          threads={visibleThreads}
-          activeId={chat.thread?.id ?? null}
-          onNew={newChat}
-          onNewTemporary={newTemporaryChat}
-          temporary={chat.temporary || Boolean(chat.thread?.temporary)}
-          onSelect={(id) => {
-            chat.selectThread(id);
-            openPage("chat");
-          }}
-          onOpenThread={(id) => setThreadMenuId(id)}
-          onClose={() => setRailOpen(false)}
-          projects={workspace.projects}
-          activeProject={activeProject}
-          onSelectProject={chooseProject}
-          onOpenSearch={openSearch}
-          onOpenProjects={() => openPage("projects")}
-          onOpenConnectors={() => openPage("connectors")}
-          onOpenCustomize={() => openPage("customize")}
-          onOpenSkills={() => openPage("skills")}
-          onOpenSettings={() => openPage("settings")}
-          onOpenMobile={() => openPage("mobile")}
-          profile={workspace.profile}
-          connectorsOn={connectorsOn}
-          skillsOn={skillsOn}
-        />
-      )}
+    <TooltipProvider>
+      <div
+        className={cn(
+          "grid h-[var(--app-height,100dvh)] overflow-hidden",
+          railOpen
+            ? "grid-cols-1 min-[861px]:grid-cols-[280px_minmax(0,1fr)]"
+            : "grid-cols-1",
+        )}
+      >
+        {railOpen && (
+          <Sidebar
+            brand={BRAND}
+            threads={visibleThreads}
+            activeId={chat.thread?.id ?? null}
+            onNew={newChat}
+            onNewTemporary={newTemporaryChat}
+            temporary={chat.temporary || Boolean(chat.thread?.temporary)}
+            onSelect={(id) => {
+              chat.selectThread(id);
+              openPage("chat");
+            }}
+            onOpenThread={(id) => dialogs.setThreadMenuId(id)}
+            onClose={() => setRailOpen(false)}
+            projects={workspace.projects}
+            activeProject={activeProject}
+            onSelectProject={chooseProject}
+            onOpenSearch={openSearch}
+            onOpenProjects={() => openPage("projects")}
+            onOpenConnectors={() => openPage("connectors")}
+            onOpenCustomize={() => openPage("customize")}
+            onOpenSkills={() => openPage("skills")}
+            onOpenSettings={() => openPage("settings")}
+            onOpenMobile={() => openPage("mobile")}
+            session={auth.session}
+            onChangeAccount={changeAccount}
+            onSignOut={signOut}
+            connectorsOn={connectorsOn}
+            skillsOn={skillsOn}
+          />
+        )}
 
-      {railOpen && <div className="scrim" onClick={() => setRailOpen(false)} aria-hidden="true" />}
+        {railOpen && (
+          <div
+            aria-hidden="true"
+            onClick={() => setRailOpen(false)}
+            className="fixed inset-0 z-30 bg-black/30 min-[861px]:hidden"
+          />
+        )}
 
-      <main className="main">
-        <div className="topbar">
-          <button
-            type="button"
-            className="icon-btn topbar-menu"
-            onClick={() => setRailOpen((open) => !open)}
-            aria-label={railOpen ? "Hide chats" : "Show chats"}
-            aria-expanded={railOpen}
-            title={railOpen ? "Hide chats" : "Show chats"}
-          >
-            <IconMenu />
-          </button>
-          {view !== "chat" && (
-            <button
-              type="button"
-              className="icon-btn topbar-back"
-              onClick={() => openPage("chat")}
-              aria-label="Back to chat"
-              title="Back to chat"
+        <main className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+          <div className="flex min-h-[52px] items-center gap-2 border-b border-border-soft px-3 py-2 pt-[calc(8px+env(safe-area-inset-top))] pr-[max(12px,env(safe-area-inset-right))] pl-[max(12px,env(safe-area-inset-left))]">
+            <IconButton
+              label={railOpen ? "Hide chats" : "Show chats"}
+              aria-expanded={railOpen}
+              onClick={() => setRailOpen((open) => !open)}
+              className={cn(railOpen && "inline-flex min-[861px]:hidden")}
             >
-              <IconArrowLeft size={18} />
-            </button>
-          )}
-          <span className="topbar-title">
-            {view === "chat"
-              ? activeThread?.title ?? activeProject?.name ?? BRAND
-              : VIEW_TITLE[view]}
-          </span>
-          <div className="topbar-actions">
-            {view === "chat" && activeThread && !activeThread.temporary && (
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setShareId(activeThread.id)}
-                aria-label="Share chat"
-                title="Share chat"
-              >
-                <IconShare />
-              </button>
+              <IconMenu />
+            </IconButton>
+            {view !== "chat" && (
+              <IconButton label="Back to chat" onClick={() => openPage("chat")}>
+                <IconArrowLeft size={18} />
+              </IconButton>
             )}
-            {view === "chat" && activeThread && (
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setThreadMenuId(activeThread.id)}
-                aria-label="Chat options"
-                title="Rename, move or delete"
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+              {view === "chat"
+                ? (activeThread?.title ?? activeProject?.name ?? BRAND)
+                : VIEW_TITLE[view]}
+            </span>
+            <div className="flex flex-none items-center gap-0.5">
+              {view === "chat" && activeThread && !activeThread.temporary && (
+                <IconButton
+                  label="Share chat"
+                  onClick={() => dialogs.setShareId(activeThread.id)}
+                >
+                  <IconShare />
+                </IconButton>
+              )}
+              {view === "chat" && activeThread && (
+                <IconButton
+                  label="Chat options"
+                  onClick={() => dialogs.setThreadMenuId(activeThread.id)}
+                >
+                  <IconMore />
+                </IconButton>
+              )}
+              <IconButton
+                label="Toggle theme"
+                onClick={() => setPref(theme === "dark" ? "light" : "dark")}
               >
-                <IconMore />
-              </button>
-            )}
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => setPref(theme === "dark" ? "light" : "dark")}
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <IconSun /> : <IconMoon />}
-            </button>
+                {theme === "dark" ? <IconSun /> : <IconMoon />}
+              </IconButton>
+            </div>
           </div>
-        </div>
 
-        {view === "chat" && (
-          <>
-            {(chat.temporary || chat.thread?.temporary) && (
-              <div className="temporary-bar" role="status">
-                <IconGhost size={15} />
-                <span>
-                  Temporary chat. It disappears when you start another chat and is never written to
-                  storage.
-                </span>
-                <button type="button" className="link-btn" onClick={newChat}>
-                  Start a saved chat
-                </button>
+          {view === "chat" && (
+            <>
+              {(chat.temporary || chat.thread?.temporary) && (
+                <div
+                  role="status"
+                  className="flex flex-wrap items-center gap-2 border-b border-border-soft bg-brand-soft px-4 py-2 text-sm"
+                >
+                  <IconGhost size={15} className="shrink-0 text-brand" />
+                  <span>
+                    Temporary chat. It disappears when you start another chat and is never written
+                    to storage.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={newChat}
+                    className="ml-auto text-sm font-medium whitespace-nowrap text-brand hover:underline max-[860px]:ml-0"
+                  >
+                    Start a saved chat
+                  </button>
+                </div>
+              )}
+
+              <ThreadView
+                thread={chat.thread}
+                streamingId={chat.streamingId}
+                onRegenerate={chat.regenerate}
+                onEdit={chat.edit}
+                onFeedback={(id, value) => {
+                  if (chat.thread) chat.setFeedback(chat.thread.id, id, value);
+                }}
+                showMeta={workspace.settings.showMeta}
+              >
+                <EmptyState
+                  headline={activeProject ? activeProject.name : greetingHeadline}
+                  detail={
+                    activeProject
+                      ? "Everything you start here stays in this project."
+                      : greetingLine()
+                  }
+                  suggestions={SUGGESTIONS}
+                  onPick={(text) => {
+                    chat.send(text);
+                    setFocusKey((value) => value + 1);
+                  }}
+                />
+              </ThreadView>
+
+              <div className="flex-none bg-[linear-gradient(to_top,var(--background)_68%,transparent)] px-4 pt-2.5 pb-[calc(12px+env(safe-area-inset-bottom))] max-[860px]:px-2.5 max-[860px]:pb-[calc(10px+env(safe-area-inset-bottom))]">
+                <Composer
+                  streaming={chat.isStreaming}
+                  onSend={chat.send}
+                  onStop={chat.stop}
+                  model={chat.model}
+                  models={adapter.models}
+                  onModel={chat.setModel}
+                  modes={chat.modes}
+                  onToggleMode={chat.toggleMode}
+                  placeholder={PLACEHOLDER}
+                  autoFocusKey={focusKey}
+                  projects={workspace.projects}
+                  activeProjectId={activeProjectId}
+                  onAddToProject={assignProject}
+                  onOpenProjects={() => openPage("projects")}
+                  onOpenSkills={() => openPage("skills")}
+                  onOpenConnectors={() => openPage("connectors")}
+                  skillsOn={skillsOn}
+                  sendOnEnter={workspace.settings.sendOnEnter}
+                />
+                <p className="mx-auto mt-2 max-w-column text-center text-xs text-faint">
+                  {DISCLAIMER}
+                </p>
               </div>
+            </>
+          )}
+
+          <Suspense fallback={null}>
+            {view === "projects" && (
+              <ProjectsPage
+                projects={workspace.projects}
+                threads={chat.threads.filter((thread) => !thread.archivedAt && !thread.temporary)}
+                activeProjectId={activeProjectId}
+                onOpen={chooseProject}
+                onCreate={(name) => {
+                  const id = workspace.addProject(name);
+                  if (id) setActiveProjectId(id);
+                }}
+                onRename={workspace.renameProject}
+                onRemove={removeProject}
+                onNewChat={newChatInProject}
+              />
             )}
 
-            <ThreadView
-              thread={chat.thread}
-              streamingId={chat.streamingId}
-              onRegenerate={chat.regenerate}
-              onEdit={chat.edit}
-              onFeedback={(id, value) => {
-                if (chat.thread) chat.setFeedback(chat.thread.id, id, value);
-              }}
-              showMeta={workspace.settings.showMeta}
-            >
-              <EmptyState
-                headline={activeProject ? activeProject.name : greetingHeadline}
-                detail={
-                  activeProject
-                    ? "Everything you start here stays in this project."
-                    : greetingLine()
-                }
-                suggestions={SUGGESTIONS}
-                onPick={(text) => {
-                  chat.send(text);
-                  setFocusKey((value) => value + 1);
+            {view === "skills" && (
+              <SkillsPage
+                skills={workspace.skills}
+                skillOn={workspace.skillOn}
+                onToggle={workspace.toggleSkill}
+                onAdd={workspace.addSkill}
+                onRemove={workspace.removeSkill}
+              />
+            )}
+
+            {view === "connectors" && (
+              <ConnectorsPage
+                connectors={workspace.connectors}
+                enabled={workspace.enabled}
+                onToggle={workspace.toggleConnector}
+                onAdd={workspace.addConnector}
+                onRemove={workspace.removeConnector}
+              />
+            )}
+
+            {view === "customize" && (
+              <CustomizePage
+                instructions={workspace.instructions}
+                style={workspace.style}
+                activeSkills={activeSkills}
+                skillsOn={skillsOn}
+                onInstructions={workspace.setInstructions}
+                onStyle={workspace.setStyle}
+                onOpenSkills={() => openPage("skills")}
+                onReset={() => {
+                  workspace.setInstructions("");
+                  workspace.setStyle("balanced");
                 }}
               />
-            </ThreadView>
+            )}
 
-            <div className="dock">
-              <Composer
-                streaming={chat.isStreaming}
-                onSend={chat.send}
-                onStop={chat.stop}
-                model={chat.model}
-                models={adapter.models}
-                onModel={chat.setModel}
-                modes={chat.modes}
-                onToggleMode={chat.toggleMode}
-                placeholder={PLACEHOLDER}
-                autoFocusKey={focusKey}
-                projects={workspace.projects}
-                activeProjectId={activeProjectId}
-                onAddToProject={assignProject}
-                onOpenProjects={() => openPage("projects")}
-                onOpenSkills={() => openPage("skills")}
-                onOpenConnectors={() => openPage("connectors")}
-                skillsOn={skillsOn}
-                sendOnEnter={workspace.settings.sendOnEnter}
+            {view === "settings" && (
+              <SettingsPage
+                profile={workspace.profile}
+                onProfile={workspace.setProfile}
+                session={auth.session}
+                onChangeAccount={changeAccount}
+                onSignOut={signOut}
+                theme={pref}
+                onTheme={setPref}
+                settings={workspace.settings}
+                onSettings={workspace.setSettings}
+                stats={{
+                  chats: chat.threads.filter((thread) => !thread.temporary).length,
+                  projects: workspace.projects.length,
+                  connectors: connectorsOn,
+                  skills: skillsOn,
+                }}
+                archived={archivedThreads.length}
+                onExport={exportData}
+                onClear={clearData}
+                onOpenArchive={() => dialogs.setArchiveOpen(true)}
+                onOpenShortcuts={() => dialogs.setShortcutsOpen(true)}
+                onOpenMobile={() => openPage("mobile")}
               />
-              <p className="disclaimer">{DISCLAIMER}</p>
-            </div>
-          </>
+            )}
+
+            {view === "mobile" && <MobileAppPage brand={BRAND} />}
+          </Suspense>
+        </main>
+
+        {dialogs.searchOpen && (
+          <SearchDialog
+            threads={chat.threads}
+            onClose={() => dialogs.setSearchOpen(false)}
+            onSelect={(id) => {
+              const target = chat.threads.find((thread) => thread.id === id);
+              if (activeProjectId && target?.projectId !== activeProjectId)
+                setActiveProjectId(null);
+              chat.selectThread(id);
+              dialogs.setSearchOpen(false);
+              openPage("chat");
+            }}
+          />
         )}
 
-        {view === "projects" && (
-          <ProjectsPage
+        {menuThread && (
+          <ChatOptionsDialog
+            thread={menuThread}
             projects={workspace.projects}
-            threads={chat.threads.filter((thread) => !thread.archivedAt && !thread.temporary)}
-            activeProjectId={activeProjectId}
-            onOpen={chooseProject}
-            onCreate={(name) => {
-              const id = workspace.addProject(name);
-              if (id) setActiveProjectId(id);
+            onRename={(title) => chat.renameThread(menuThread.id, title)}
+            onMove={(projectId) => {
+              chat.moveThread(menuThread.id, projectId);
+              if (chat.thread?.id === menuThread.id) setActiveProjectId(projectId);
             }}
-            onRename={workspace.renameProject}
-            onRemove={removeProject}
-            onNewChat={newChatInProject}
-          />
-        )}
-
-        {view === "skills" && (
-          <SkillsPage
-            skills={workspace.skills}
-            skillOn={workspace.skillOn}
-            onToggle={workspace.toggleSkill}
-            onAdd={workspace.addSkill}
-            onRemove={workspace.removeSkill}
-          />
-        )}
-
-        {view === "connectors" && (
-          <ConnectorsPage
-            connectors={workspace.connectors}
-            enabled={workspace.enabled}
-            onToggle={workspace.toggleConnector}
-            onAdd={workspace.addConnector}
-            onRemove={workspace.removeConnector}
-          />
-        )}
-
-        {view === "customize" && (
-          <CustomizePage
-            instructions={workspace.instructions}
-            style={workspace.style}
-            activeSkills={activeSkills}
-            skillsOn={skillsOn}
-            onInstructions={workspace.setInstructions}
-            onStyle={workspace.setStyle}
-            onOpenSkills={() => openPage("skills")}
-            onReset={() => {
-              workspace.setInstructions("");
-              workspace.setStyle("balanced");
+            onShare={() => {
+              dialogs.setThreadMenuId(null);
+              dialogs.setShareId(menuThread.id);
             }}
-          />
-        )}
-
-        {view === "settings" && (
-          <SettingsPage
-            profile={workspace.profile}
-            onProfile={workspace.setProfile}
-            theme={pref}
-            onTheme={setPref}
-            settings={workspace.settings}
-            onSettings={workspace.setSettings}
-            stats={{
-              chats: chat.threads.filter((thread) => !thread.temporary).length,
-              projects: workspace.projects.length,
-              connectors: connectorsOn,
-              skills: skillsOn,
+            onPin={() => {
+              chat.togglePin(menuThread.id);
+              dialogs.setThreadMenuId(null);
             }}
-            archived={archivedThreads.length}
-            onExport={exportData}
-            onClear={clearData}
-            onOpenArchive={() => setArchiveOpen(true)}
-            onOpenShortcuts={() => setShortcutsOpen(true)}
-            onOpenMobile={() => openPage("mobile")}
+            onArchive={() => {
+              chat.setArchived(menuThread.id, true);
+              dialogs.setThreadMenuId(null);
+            }}
+            onDelete={() => {
+              chat.deleteThread(menuThread.id);
+              dialogs.setThreadMenuId(null);
+            }}
+            onClose={() => dialogs.setThreadMenuId(null)}
           />
         )}
 
-        {view === "mobile" && <MobileAppPage brand={BRAND} />}
-      </main>
+        {shareThread && (
+          <ShareDialog
+            thread={shareThread}
+            onShared={(shared) => chat.setShared(shareThread.id, shared)}
+            onClose={() => dialogs.setShareId(null)}
+          />
+        )}
 
-      {searchOpen && (
-        <SearchDialog
-          threads={chat.threads}
-          onClose={() => setSearchOpen(false)}
-          onSelect={(id) => {
-            const target = chat.threads.find((thread) => thread.id === id);
-            if (activeProjectId && target?.projectId !== activeProjectId) setActiveProjectId(null);
-            chat.selectThread(id);
-            setSearchOpen(false);
-            openPage("chat");
-          }}
-        />
-      )}
+        {dialogs.archiveOpen && (
+          <ArchiveDialog
+            threads={archivedThreads}
+            onRestore={(id) => chat.setArchived(id, false)}
+            onClose={() => dialogs.setArchiveOpen(false)}
+          />
+        )}
 
-      {menuThread && (
-        <ChatOptionsDialog
-          thread={menuThread}
-          projects={workspace.projects}
-          onRename={(title) => chat.renameThread(menuThread.id, title)}
-          onMove={(projectId) => {
-            chat.moveThread(menuThread.id, projectId);
-            if (chat.thread?.id === menuThread.id) setActiveProjectId(projectId);
-          }}
-          onShare={() => {
-            setThreadMenuId(null);
-            setShareId(menuThread.id);
-          }}
-          onPin={() => {
-            chat.togglePin(menuThread.id);
-            setThreadMenuId(null);
-          }}
-          onArchive={() => {
-            chat.setArchived(menuThread.id, true);
-            setThreadMenuId(null);
-          }}
-          onDelete={() => {
-            chat.deleteThread(menuThread.id);
-            setThreadMenuId(null);
-          }}
-          onClose={() => setThreadMenuId(null)}
-        />
-      )}
-
-      {shareThread && (
-        <ShareDialog
-          thread={shareThread}
-          onShared={(shared) => chat.setShared(shareThread.id, shared)}
-          onClose={() => setShareId(null)}
-        />
-      )}
-
-      {archiveOpen && (
-        <ArchiveDialog
-          threads={archivedThreads}
-          onRestore={(id) => chat.setArchived(id, false)}
-          onClose={() => setArchiveOpen(false)}
-        />
-      )}
-
-      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
-    </div>
+        {dialogs.shortcutsOpen && (
+          <ShortcutsDialog onClose={() => dialogs.setShortcutsOpen(false)} />
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
