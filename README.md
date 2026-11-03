@@ -100,6 +100,23 @@ One Node process, and the server has no runtime dependencies of its own. Behind
 Nginx or Cloudflare, disable response buffering for `/api/chat` (the server sends
 `x-accel-buffering: no`).
 
+### GitHub Pages
+
+React is not the obstacle: `npm run build` emits plain HTML, JS and CSS. The
+workflow at `.github/workflows/pages.yml` deploys `dist/` on every push to
+`main`, and it handles the two things that actually differ from a Node host:
+
+- **Base path.** A project site lives at `/<repo>/`, so the workflow builds with
+  `BASE_PATH=/<repo>/` (`vite.config.ts` reads it). A repo named
+  `<user>.github.io` builds at the root instead.
+- **No server.** Pages cannot answer `POST /api/chat`, so the workflow builds
+  with `VITE_DEMO=1`. That swaps the network adapter for `localDemo` in
+  `src/lib/adapter.ts`, which streams a reply from the browser and says it is a
+  demo. For real answers, deploy behind Node and drop that variable.
+
+Turn it on once: **Settings → Pages → Source: GitHub Actions**. `index.html` is
+also copied to `404.html`, so an unknown path still lands on the app.
+
 ## Install it on a phone
 
 The build is a PWA. `public/manifest.webmanifest` declares the name, icons and

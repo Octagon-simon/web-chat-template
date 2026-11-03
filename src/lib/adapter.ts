@@ -96,4 +96,39 @@ function parseEvent(payload: string): StreamEvent | null {
   }
 }
 
-export const adapter: ChatAdapter = openAICompatible;
+/**
+ * Static hosts have no `/api/chat`, so the demo build streams a canned reply
+ * from the browser instead of failing every send.
+ */
+export const localDemo: ChatAdapter = {
+  id: "demo",
+  label: "Demo (no server)",
+  models: readModels(),
+  defaultModel: env.VITE_MODEL ?? "gpt-4o-mini",
+
+  async *stream({ messages, signal }) {
+    const asked = [...messages].reverse().find((m) => m.role === "user")?.content.trim();
+    const quoted = asked ? (asked.length > 140 ? `${asked.slice(0, 140)}...` : asked) : "";
+    const reply = [
+      "**Demo mode.** This build is static, so this reply is generated in the browser. Nothing was sent to a model.\n\n",
+      quoted ? `You asked: "${quoted}"\n\n` : "",
+      "To get real answers, run the template locally:\n\n",
+      "```bash\nnpm install\nOPENAI_API_KEY=sk-... npm run dev\n```\n\n",
+      "The dev server proxies `POST /api/chat` to any OpenAI-compatible endpoint: OpenAI, Ollama, vLLM, Groq, Together. Point `OPENAI_BASE_URL` at your own.",
+    ].join("");
+
+    const tokens = reply.match(/\S+\s*/g) ?? [];
+    for (const token of tokens) {
+      if (signal.aborted) return;
+      await new Promise((done) => setTimeout(done, 16));
+      if (signal.aborted) return;
+      yield { type: "delta", text: token };
+    }
+    yield {
+      type: "done",
+      usage: { promptTokens: Math.round((quoted.length + 40) / 4), completionTokens: Math.round(reply.length / 4) },
+    };
+  },
+};
+
+export const adapter: ChatAdapter = env.VITE_DEMO === "1" ? localDemo : openAICompatible;
