@@ -1,0 +1,30 @@
+{
+  "category": "webpage",
+  "duration_s": 30,
+  "fps": 30,
+  "canvas": { "w": 1920, "h": 1080, "aspect": "16:9" },
+  "style": "Quiet product deck: a real screenshot inside a thin dark app window, a caption bar that names the screen, one slow camera move per beat. No fake chrome, no invented copy.",
+  "palette": ["#08080a", "#0d0d10", "#8ea6ff", "#2451da", "#f2f2f2", "#a3a3ab", "#85858e"],
+  "font": "system-ui",
+  "beats": [0.12, 3.5, 5.45, 8.2, 16.35, 20.42, 25.25],
+  "export": "mp4",
+  "asset_needs": [],
+  "content": {
+    "url": "http://localhost:5173",
+    "capture": "assets/screens/*.png — 15 Playwright captures at 1440x810 @2x (desktop) and 390x844 @3x (mobile), plus a 3x composer strip",
+    "highlights": [
+      { "region": "composer", "label": "Every control is 40px." },
+      { "region": "rail", "label": "Projects, Skills, Connectors, Customize, Mobile app" },
+      { "region": "settings", "label": "Light, dark, or the system" }
+    ],
+    "scenes": [
+      { "id": "title", "start": 0, "end": 3.15, "text": "A chat UI you can own.", "motion": "masked line reveal, spec column fades in" },
+      { "id": "chat", "start": 3.5, "end": 5.32, "text": "01 CHAT", "motion": "window settle, slow hold" },
+      { "id": "composer", "start": 5.45, "end": 7.95, "text": "Every control is 40px.", "motion": "detail card rises over the stage" },
+      { "id": "tour", "start": 8.2, "end": 16.2, "text": "Projects / Skills / Connectors / Customize / Mobile app", "motion": "lateral screen pushes, caption bar crossfade" },
+      { "id": "theme", "start": 16.35, "end": 20.15, "text": "Settings", "motion": "clip-path wipe light to dark, then chat in dark" },
+      { "id": "mobile", "start": 20.42, "end": 24.75, "text": "390 x 844", "motion": "phone rises; screen crossfades to settings" },
+      { "id": "end", "start": 25.0, "end": 30, "text": "Make it yours.", "motion": "masked line reveal, hold to last frame" }
+    ]
+  }
+}

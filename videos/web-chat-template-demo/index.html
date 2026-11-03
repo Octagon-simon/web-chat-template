@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <title>Web chat template — screen tour</title>
+    <style>
+      :root {
+        --ground: #08080a;
+        --panel: #0d0d10;
+        --bar: #101013;
+        --line: rgba(255, 255, 255, 0.13);
+        --line-soft: rgba(255, 255, 255, 0.07);
+        --ink: #f2f2f2;
+        --muted: #a3a3ab;
+        --faint: #85858e;
+        --accent: #8ea6ff;
+        --accent-deep: #2451da;
+        --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+        --mono: ui-monospace, Menlo, monospace;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--ground);
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--ground);
+        font-family: var(--font);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+        isolation: isolate;
+      }
+
+      .glow {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        width: 1500px;
+        height: 900px;
+        margin: -450px 0 0 -750px;
+        background: radial-gradient(closest-side, rgba(36, 81, 218, 0.2), rgba(36, 81, 218, 0.05) 55%, transparent 72%);
+        filter: blur(20px);
+        pointer-events: none;
+      }
+      .vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(125% 95% at 50% 45%, transparent 48%, rgba(0, 0, 0, 0.5) 100%);
+        pointer-events: none;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        visibility: hidden;
+      }
+      #s1 {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: linear-gradient(140deg, var(--accent-deep), #5464d6);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+        display: grid;
+        place-items: center;
+        flex: none;
+      }
+
+      /* title card */
+      #s1 .brand {
+        position: absolute;
+        left: 120px;
+        top: 104px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      #s1 .brand-name {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      #s1 .kicker {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        color: var(--faint);
+        margin-left: 10px;
+      }
+      #s1 .rule {
+        position: absolute;
+        left: 120px;
+        top: 152px;
+        width: 220px;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(142, 166, 255, 0.9), rgba(142, 166, 255, 0));
+        transform-origin: 0 50%;
+      }
+      #s1 .title-block {
+        position: absolute;
+        left: 120px;
+        top: 318px;
+      }
+      .line {
+        overflow: hidden;
+        display: block;
+        font-size: 106px;
+        line-height: 1.16;
+        font-weight: 600;
+        letter-spacing: -0.045em;
+      }
+      .line span {
+        display: block;
+      }
+      .line em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      #s1 .sub {
+        margin-top: 26px;
+        font-size: 26px;
+        color: var(--muted);
+        letter-spacing: -0.01em;
+      }
+      #s1 .sub span {
+        display: block;
+        line-height: 1.45;
+      }
+      #s1 .specs {
+        position: absolute;
+        right: 120px;
+        top: 318px;
+        width: 540px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      #s1 .specs .cap {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: var(--faint);
+        padding-bottom: 18px;
+      }
+      #s1 .spec {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+        padding: 20px 0;
+        border-top: 1px solid var(--line-soft);
+      }
+      #s1 .spec .k {
+        width: 76px;
+        font-family: var(--mono);
+        font-size: 30px;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+      #s1 .spec .v {
+        font-size: 20px;
+        color: var(--muted);
+      }
+
+      /* window */
+      .window {
+        position: absolute;
+        left: 60px;
+        top: 14px;
+        width: 1800px;
+        border-radius: 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        box-shadow:
+          0 44px 90px rgba(0, 0, 0, 0.55),
+          0 10px 24px rgba(0, 0, 0, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+      }
+      .bar {
+        position: relative;
+        height: 42px;
+        background: var(--bar);
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .bar-row {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 0 22px;
+      }
+      .bar-idx {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        color: var(--accent);
+      }
+      .bar-name {
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .bar-sep {
+        width: 1px;
+        height: 15px;
+        background: var(--line);
+        flex: none;
+      }
+      .bar-desc {
+        font-size: 18px;
+        color: var(--muted);
+        letter-spacing: -0.005em;
+        white-space: nowrap;
+      }
+      .bar-addr {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--faint);
+        white-space: nowrap;
+      }
+      .screen {
+        position: relative;
+        width: 1800px;
+        height: 1012px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .screen img {
+        position: absolute;
+        inset: 0;
+        width: 1800px;
+        height: 1012px;
+        display: block;
+      }
+
+      /* composer detail */
+      .detail {
+        position: absolute;
+        left: 180px;
+        top: 330px;
+        width: 1560px;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        color: var(--accent);
+      }
+      .detail h2 {
+        margin-top: 12px;
+        font-size: 56px;
+        font-weight: 600;
+        letter-spacing: -0.035em;
+      }
+      .detail-card {
+        margin-top: 34px;
+        width: 1560px;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #fff;
+        padding-bottom: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 32px 70px rgba(0, 0, 0, 0.55);
+      }
+      .detail-card img {
+        display: block;
+        width: 1560px;
+      }
+      .chips {
+        margin-top: 28px;
+        display: flex;
+        gap: 12px;
+      }
+      .chips span {
+        padding: 9px 15px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 16px;
+        color: var(--muted);
+      }
+
+      /* settings + theme */
+      #s4 .screen .dark,
+      #s4 .screen .chatdark {
+        position: absolute;
+        inset: 0;
+        width: 1800px;
+        height: 1012px;
+      }
+      #s4 .screen .dark {
+        clip-path: inset(0% 0% 0% 100%);
+      }
+      #s4 .screen .chatdark {
+        opacity: 0;
+      }
+
+      /* phone */
+      .phone {
+        position: absolute;
+        left: 210px;
+        top: 54px;
+        width: 460px;
+        height: 972px;
+        padding: 10px;
+        border-radius: 54px;
+        background: linear-gradient(160deg, #26262d, #0b0b0d 42%, #1a1a21);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow:
+          0 40px 90px rgba(0, 0, 0, 0.65),
+          inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+      }
+      .phone .shots {
+        position: relative;
+        width: 440px;
+        height: 952px;
+        overflow: hidden;
+        border-radius: 45px;
+        background: #fff;
+      }
+      .phone .shots img {
+        position: absolute;
+        inset: 0;
+        width: 440px;
+        height: 952px;
+        display: block;
+      }
+      #s5 .copy {
+        position: absolute;
+        left: 800px;
+        top: 384px;
+      }
+      #s5 .copy h2 {
+        margin-top: 14px;
+        font-size: 80px;
+        font-weight: 600;
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+      }
+      #s5 .copy p {
+        margin-top: 22px;
+        font-size: 26px;
+        line-height: 1.5;
+        color: var(--muted);
+        max-width: 620px;
+      }
+      #s5 .copy p strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      #s5 .copy .note {
+        margin-top: 30px;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--faint);
+        letter-spacing: 0.06em;
+      }
+
+      /* end card */
+      #s6 .end {
+        position: absolute;
+        left: 120px;
+        top: 300px;
+      }
+      #s6 .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 46px;
+      }
+      #s6 .brand-name {
+        font-size: 24px;
+        font-weight: 600;
+      }
+      #s6 .l1 {
+        font-size: 106px;
+      }
+      #s6 .sub {
+        margin-top: 26px;
+        font-size: 25px;
+        color: var(--muted);
+        max-width: 900px;
+        line-height: 1.45;
+      }
+      #s6 .chip {
+        margin-top: 38px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 19px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        font-family: var(--mono);
+        font-size: 15px;
+        color: var(--ink);
+      }
+      #s6 .chip b {
+        color: var(--accent);
+        font-weight: 400;
+      }
+      #s6 .foot {
+        position: absolute;
+        left: 120px;
+        bottom: 92px;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        color: var(--faint);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="30"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="glow"></div>
+
+      <section class="scene" id="s1">
+        <div class="brand">
+          <span class="mark">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M6 5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6.4L7 19.6V16h-1a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" fill="#fff" />
+            </svg>
+          </span>
+          <span class="brand-name">chat</span>
+          <span class="kicker">WEB CHAT TEMPLATE</span>
+        </div>
+        <div class="rule"></div>
+        <div class="title-block">
+          <h1 class="line l1"><span>A chat UI</span></h1>
+          <h1 class="line l2"><span>you can <em>own</em>.</span></h1>
+          <p class="sub"><span>One column, real streaming.</span><span>Point it at your model.</span></p>
+        </div>
+        <div class="specs">
+          <div class="cap">MEASURED</div>
+          <div class="spec"><span class="k">768</span><span class="v">conversation column</span></div>
+          <div class="spec"><span class="k">40</span><span class="v">controls, every surface</span></div>
+          <div class="spec"><span class="k">1</span><span class="v">runtime dependency</span></div>
+        </div>
+      </section>
+
+      <section class="scene" id="s2">
+        <div class="window" id="heroWin">
+          <div class="bar">
+            <div class="bar-row">
+              <span class="bar-idx">01</span>
+              <span class="bar-name">Chat</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">One conversation column, measured from three products.</span>
+              <span class="bar-addr">localhost:5173</span>
+            </div>
+          </div>
+          <div class="screen">
+            <img src="assets/screens/chat-light.png" alt="Chat screen" />
+          </div>
+        </div>
+
+        <div class="detail" id="composerDetail">
+          <div class="eyebrow">COMPOSER</div>
+          <h2>Every control is 40px.</h2>
+          <div class="detail-card">
+            <img src="assets/screens/composer.png" alt="Composer controls" />
+          </div>
+          <div class="chips">
+            <span>768px column</span>
+            <span>40px controls</span>
+            <span>16px inputs on mobile</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s3">
+        <div class="window">
+          <div class="bar" data-layout-allow-overlap="true">
+            <div class="bar-row" data-row="0">
+              <span class="bar-idx">02</span>
+              <span class="bar-name">Projects</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">Group related chats and share one context.</span>
+              <span class="bar-addr">localhost:5173/projects</span>
+            </div>
+            <div class="bar-row" data-row="1">
+              <span class="bar-idx">03</span>
+              <span class="bar-name">Skills</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">Reusable instruction packs, toggled per workspace.</span>
+              <span class="bar-addr">localhost:5173/skills</span>
+            </div>
+            <div class="bar-row" data-row="2">
+              <span class="bar-idx">04</span>
+              <span class="bar-name">Connectors</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">The wiring point for tools your backend owns.</span>
+              <span class="bar-addr">localhost:5173/connectors</span>
+            </div>
+            <div class="bar-row" data-row="3">
+              <span class="bar-idx">05</span>
+              <span class="bar-name">Customize</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">Instructions and response style, in one system message.</span>
+              <span class="bar-addr">localhost:5173/customize</span>
+            </div>
+            <div class="bar-row" data-row="4">
+              <span class="bar-idx">06</span>
+              <span class="bar-name">Mobile app</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">Install the same chat straight to a home screen.</span>
+              <span class="bar-addr">localhost:5173/mobile</span>
+            </div>
+          </div>
+          <div class="screen" data-layout-allow-overflow="true">
+            <img data-shot="0" src="assets/screens/projects-light.png" alt="Projects" />
+            <img data-shot="1" src="assets/screens/skills-light.png" alt="Skills" />
+            <img data-shot="2" src="assets/screens/connectors-light.png" alt="Connectors" />
+            <img data-shot="3" src="assets/screens/customize-light.png" alt="Customize" />
+            <img data-shot="4" src="assets/screens/mobile-light.png" alt="Mobile app" />
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s4">
+        <div class="window">
+          <div class="bar">
+            <div class="bar-row">
+              <span class="bar-idx">07</span>
+              <span class="bar-name">Settings</span>
+              <span class="bar-sep"></span>
+              <span class="bar-desc">Stored in this browser, themed light or dark.</span>
+              <span class="bar-addr">localhost:5173/settings</span>
+            </div>
+          </div>
+          <div class="screen">
+            <img src="assets/screens/settings-light.png" alt="Settings, light" />
+            <img class="dark" src="assets/screens/settings-dark.png" alt="Settings, dark" />
+            <img class="chatdark" src="assets/screens/chat-dark.png" alt="Chat, dark" />
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s5">
+        <div class="phone">
+          <div class="shots">
+            <img src="assets/screens/m-chat-light.png" alt="Chat on a phone" />
+            <img class="second" src="assets/screens/m-settings-light.png" alt="Settings on a phone" />
+          </div>
+        </div>
+        <div class="copy">
+          <div class="eyebrow">MOBILE</div>
+          <h2>390 × 844</h2>
+          <p><strong>The rail becomes a drawer.</strong><br />Controls stay 40px, chips go icon-only.</p>
+          <div class="note">PWA MANIFEST INCLUDED</div>
+        </div>
+      </section>
+
+      <section class="scene" id="s6">
+        <div class="end">
+          <div class="brand">
+            <span class="mark">
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M6 5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6.4L7 19.6V16h-1a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" fill="#fff" />
+              </svg>
+            </span>
+            <span class="brand-name">chat</span>
+          </div>
+          <h1 class="line l1"><span>Make it yours.</span></h1>
+          <p class="sub">React is the only dependency. One adapter, any model.</p>
+          <span class="chip"><b>$</b> npm run build</span>
+        </div>
+        <div class="foot">WEB CHAT TEMPLATE</div>
+      </section>
+
+      <div class="vignette"></div>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      //title
+      tl.fromTo("#s1 .rule", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power3.inOut" }, 0.35);
+      tl.fromTo("#s1 .l1 span", { yPercent: 110 }, { yPercent: 0, duration: 0.9, ease: "power4.out" }, 0.12);
+      tl.fromTo("#s1 .l2 span", { yPercent: 110 }, { yPercent: 0, duration: 0.9, ease: "power4.out" }, 0.25);
+      tl.fromTo("#s1 .sub", { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.65, ease: "power2.out" }, 0.75);
+      tl.fromTo("#s1 .specs .cap", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 0.95);
+      tl.fromTo("#s1 .spec", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power2.out", stagger: 0.09 }, 1.05);
+      tl.fromTo("#s1", { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -26, duration: 0.5, ease: "power2.in" }, 3.15);
+
+      //chat hero, then the composer detail
+      tl.fromTo("#s2", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 3.5);
+      tl.fromTo("#s2 .window", { autoAlpha: 0, y: 46, scale: 1.035 }, { autoAlpha: 1, y: 0, scale: 1, duration: 1, ease: "power3.out" }, 3.52);
+      tl.fromTo("#s2 .bar-row", { autoAlpha: 0, x: -12 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: "power2.out" }, 3.9);
+      tl.fromTo("#s2 .window", { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -18, duration: 0.35, ease: "power2.in", immediateRender: false }, 5.32);
+      tl.fromTo("#composerDetail", { autoAlpha: 0, y: 34 }, { autoAlpha: 1, y: 0, duration: 0.65, ease: "power3.out" }, 5.45);
+      tl.fromTo("#s2", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, immediateRender: false }, 7.95);
+
+      //the other surfaces
+      const tourT = [8.2, 9.8, 11.4, 13.0, 14.6];
+      tl.fromTo("#s3", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 8.15);
+      tl.fromTo("#s3 .window", { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power2.out" }, 8.2);
+      tourT.forEach((t, i) => {
+        tl.fromTo(`#s3 img[data-shot="${i}"]`, { autoAlpha: 0, x: 56 }, { autoAlpha: 1, x: 0, duration: 0.42, ease: "power3.out" }, t);
+        tl.fromTo(`#s3 .bar-row[data-row="${i}"]`, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.32, ease: "power2.out" }, t + 0.04);
+        if (i > 0) {
+          tl.fromTo(`#s3 img[data-shot="${i - 1}"]`, { autoAlpha: 1, x: 0 }, { autoAlpha: 0, x: -50, duration: 0.3, ease: "power2.in", immediateRender: false }, t);
+          tl.fromTo(`#s3 .bar-row[data-row="${i - 1}"]`, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.26, immediateRender: false }, t);
+        }
+      });
+      tl.fromTo("#s3", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, immediateRender: false }, 16.2);
+
+      //settings, then the theme wipe
+      tl.fromTo("#s4", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 16.3);
+      tl.fromTo("#s4 .window", { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: "power2.out" }, 16.35);
+      tl.fromTo("#s4 .dark", { clipPath: "inset(0% 0% 0% 100%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 1.15, ease: "power2.inOut" }, 17.6);
+      tl.fromTo("#s4 .chatdark", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.45 }, 18.95);
+      tl.fromTo("#s4 .bar-row", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.25, immediateRender: false }, 18.95);
+      tl.fromTo("#s4 .window", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, immediateRender: false }, 20.15);
+
+      //phone
+      tl.fromTo("#s5", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 20.35);
+      tl.fromTo("#s5 .phone", { autoAlpha: 0, y: 90, rotate: -3 }, { autoAlpha: 1, y: 0, rotate: 0, duration: 1.05, ease: "power3.out" }, 20.42);
+      tl.fromTo("#s5 .copy .eyebrow", { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power2.out" }, 20.6);
+      tl.fromTo("#s5 .copy h2", { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: "power3.out" }, 20.7);
+      tl.fromTo("#s5 .copy p", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power2.out" }, 20.95);
+      tl.fromTo("#s5 .copy .note", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 21.2);
+      tl.fromTo("#s5 .shots .second", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6, ease: "power2.inOut" }, 22.7);
+      tl.fromTo("#s5", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.35, immediateRender: false }, 24.75);
+
+      //end card
+      tl.fromTo("#s6", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 25.0);
+      tl.fromTo("#s6 .brand", { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: "power2.out" }, 25.1);
+      tl.fromTo("#s6 .l1 span", { yPercent: 110 }, { yPercent: 0, duration: 0.85, ease: "power4.out" }, 25.25);
+      tl.fromTo("#s6 .sub", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.7, ease: "power2.out" }, 25.75);
+      tl.fromTo("#s6 .chip", { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: "power2.out" }, 26.15);
+      tl.fromTo("#s6 .foot", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, 26.5);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
