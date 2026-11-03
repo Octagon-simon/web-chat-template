@@ -7,7 +7,10 @@ adapter you point at anything that speaks OpenAI chat completions.
 The layout is the intersection of what ChatGPT, Claude and DeepSeek ship. The
 measurements are in [`docs/`](docs) (`01`–`03` per product, `04` synthesis).
 
-## DEMO
+## Demo
+
+Live: https://octagon-simon.github.io/web-chat-template/ (static build, replies
+come from the browser, see [Deploy](#github-pages))
 
 https://github.com/user-attachments/assets/cd81e895-bac7-43eb-a78c-bd665f3f3297
 
